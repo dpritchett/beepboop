@@ -30,6 +30,15 @@ func (s generatedSound) Samples() []float64 {
 	return out
 }
 
+// NewSound wraps raw samples as a Sound. It copies the input so later
+// mutations of the caller's slice do not leak into the returned value,
+// which keeps pipeline sources and effects deterministic.
+func NewSound(sampleRate int, samples []float64) Sound {
+	out := make([]float64, len(samples))
+	copy(out, samples)
+	return generatedSound{sampleRate: sampleRate, samples: out}
+}
+
 func AlternatingTone(spec SoundSpec) Sound {
 	if spec.SampleRate <= 0 {
 		spec.SampleRate = 44100

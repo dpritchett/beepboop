@@ -7,9 +7,9 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"beepboop/internal/pipeline"
 	"beepboop/internal/player"
 	"beepboop/internal/presets"
-	"beepboop/internal/wav"
 )
 
 func main() {
@@ -71,7 +71,10 @@ func render(name, output string) error {
 		return err
 	}
 	defer file.Close()
-	return wav.WritePCM16Mono(file, preset.Sound.SampleRate(), preset.Sound.Samples())
+	return pipeline.Pipeline{
+		Source:   pipeline.StaticSource{Sound: preset.Sound},
+		Exporter: pipeline.WAVExporter{W: file},
+	}.Run()
 }
 
 func preview(name string) error {
