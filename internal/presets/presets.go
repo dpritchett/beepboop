@@ -13,6 +13,7 @@ func List() []string {
 		"alarm-urgent",
 		"soft-reminder",
 		"turn-ready",
+		"turn-ready-soft",
 		"notify-blip",
 		"notify-chime",
 	}
@@ -66,6 +67,21 @@ func Resolve(name string) (Preset, bool) {
 				Gain:        0.28,
 				Frequencies: []float64{659.25, 880.0},
 				Step:        0.14,
+			}),
+		}, true
+	case "turn-ready-soft":
+		// Low-attention companion to turn-ready: a single short, quiet E5
+		// blip for "Claude moved again, you're aware" moments where you are
+		// not actually blocking anyone. Softer, shorter, and lower-energy
+		// than turn-ready so it registers without demanding a response.
+		return Preset{
+			Name: name,
+			Sound: audio.AlternatingTone(audio.SoundSpec{
+				SampleRate:  44100,
+				Duration:    0.10,
+				Gain:        0.18,
+				Frequencies: []float64{659.25},
+				Step:        0.10,
 			}),
 		}, true
 	case "notify-blip":

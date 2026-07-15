@@ -9,6 +9,7 @@ func TestListIncludesMVPPresets(t *testing.T) {
 		"alarm-urgent",
 		"soft-reminder",
 		"turn-ready",
+		"turn-ready-soft",
 		"notify-blip",
 		"notify-chime",
 	}
@@ -52,6 +53,19 @@ func TestResolveTurnReady(t *testing.T) {
 	}
 	if samples := preset.Sound.Samples(); len(samples) != 12348 {
 		t.Fatalf("len(samples) = %d, want 12348", len(samples))
+	}
+}
+
+func TestResolveTurnReadySoft(t *testing.T) {
+	preset, ok := Resolve("turn-ready-soft")
+	if !ok {
+		t.Fatal("Resolve(turn-ready-soft) ok = false")
+	}
+	if preset.Name != "turn-ready-soft" {
+		t.Fatalf("preset name = %q, want turn-ready-soft", preset.Name)
+	}
+	if samples := preset.Sound.Samples(); len(samples) != 4410 {
+		t.Fatalf("len(samples) = %d, want 4410", len(samples))
 	}
 }
 
