@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 
 	"beepboop/internal/pipeline"
 	"beepboop/internal/player"
@@ -109,10 +110,30 @@ func inspect(paths []string, stdout io.Writer) error {
 		for _, sample := range samples {
 			peak = math.Max(peak, math.Abs(sample))
 		}
-		fmt.Fprintf(stdout, "%s\trate=%d\tsamples=%d\tdur=%.3fs\tpeak=%.2f\n",
-			path, rate, len(samples), float64(len(samples))/float64(rate), peak)
+		seam, p99 := seamReport(samples)
+		fmt.Fprintf(stdout, "%s\trate=%d\tsamples=%d\tdur=%.3fs\tpeak=%.2f\tseam=%.4f\tp99=%.4f\n",
+			path, rate, len(samples), float64(len(samples))/float64(rate), peak, seam, p99)
 	}
 	return nil
+}
+
+// seamReport returns the jump a looping player hears at the wrap point, and
+// the 99th percentile of the jumps inside the buffer for comparison.
+//
+// The peak step is the wrong yardstick for noisy material: one loud transient
+// makes any seam look small. A seam near p99 is indistinguishable from the
+// sound's own texture; a seam well above it ticks once per repeat.
+func seamReport(samples []float64) (seam, p99 float64) {
+	if len(samples) < 2 {
+		return 0, 0
+	}
+	steps := make([]float64, 0, len(samples)-1)
+	for i := 1; i < len(samples); i++ {
+		steps = append(steps, math.Abs(samples[i]-samples[i-1]))
+	}
+	sort.Float64s(steps)
+	return math.Abs(samples[0] - samples[len(samples)-1]),
+		steps[int(float64(len(steps))*0.99)]
 }
 
 // bake renders every output in a recipe into outdir as <name>.wav. Spoken

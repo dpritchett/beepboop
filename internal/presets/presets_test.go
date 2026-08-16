@@ -1,6 +1,9 @@
 package presets
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
 
 func TestListIncludesMVPPresets(t *testing.T) {
 	got := List()
@@ -12,6 +15,8 @@ func TestListIncludesMVPPresets(t *testing.T) {
 		"turn-ready-soft",
 		"notify-blip",
 		"notify-chime",
+		"flight-fast",
+		"flight-slow",
 	}
 
 	if len(got) != len(want) {
@@ -66,6 +71,79 @@ func TestResolveTurnReadySoft(t *testing.T) {
 	}
 	if samples := preset.Sound.Samples(); len(samples) != 4410 {
 		t.Fatalf("len(samples) = %d, want 4410", len(samples))
+	}
+}
+
+func TestFlightPresetsAreMarkedAsLoops(t *testing.T) {
+	// A consumer has to know to set loop playback and skip a fade-out. The
+	// one-shot alerts must not be flagged, or they will repeat forever.
+	for _, tc := range []struct {
+		name string
+		loop bool
+	}{
+		{"flight-fast", true},
+		{"flight-slow", true},
+		{"notify-blip", false},
+		{"alarm-basic", false},
+	} {
+		preset, ok := Resolve(tc.name)
+		if !ok {
+			t.Fatalf("Resolve(%s) ok = false", tc.name)
+		}
+		if preset.Loop != tc.loop {
+			t.Errorf("%s Loop = %v, want %v", tc.name, preset.Loop, tc.loop)
+		}
+	}
+}
+
+func TestFlightPresetsWrapWithoutAClick(t *testing.T) {
+	// These play on repeat while the camera moves. A discontinuity at the
+	// wrap point is an audible tick on every single loop.
+	for _, name := range []string{"flight-fast", "flight-slow"} {
+		preset, ok := Resolve(name)
+		if !ok {
+			t.Fatalf("Resolve(%s) ok = false", name)
+		}
+		samples := preset.Sound.Samples()
+		worst := 0.0
+		for i := 1; i < len(samples); i++ {
+			worst = math.Max(worst, math.Abs(samples[i]-samples[i-1]))
+		}
+		if seam := math.Abs(samples[0] - samples[len(samples)-1]); seam > worst {
+			t.Errorf("%s seam jump %v exceeds largest in-buffer step %v", name, seam, worst)
+		}
+	}
+}
+
+func TestFlightPresetsDiffer(t *testing.T) {
+	// Fast should read as brighter and busier than slow, or the two speeds
+	// are not actually distinguishable in flight.
+	step := func(name string) float64 {
+		preset, _ := Resolve(name)
+		samples := preset.Sound.Samples()
+		total := 0.0
+		for i := 1; i < len(samples); i++ {
+			total += math.Abs(samples[i] - samples[i-1])
+		}
+		return total / float64(len(samples))
+	}
+
+	fast, slow := step("flight-fast"), step("flight-slow")
+	if fast <= slow {
+		t.Errorf("flight-fast average step %v is not above flight-slow %v", fast, slow)
+	}
+}
+
+func TestFlightPresetsAreDeterministic(t *testing.T) {
+	for _, name := range []string{"flight-fast", "flight-slow"} {
+		first, _ := Resolve(name)
+		second, _ := Resolve(name)
+		a, b := first.Sound.Samples(), second.Sound.Samples()
+		for i := range a {
+			if a[i] != b[i] {
+				t.Fatalf("%s nondeterministic at %d: %v vs %v", name, i, a[i], b[i])
+			}
+		}
 	}
 }
 

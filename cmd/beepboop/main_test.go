@@ -148,6 +148,28 @@ func TestRunInspect(t *testing.T) {
 	}
 }
 
+func TestRunInspectReportsSeam(t *testing.T) {
+	// Loop presets live or die on the wrap point, so inspect reports the
+	// seam jump against the p99 step that surrounds it. A seam far above
+	// the material's own steps is an audible tick on every repeat.
+	dir := t.TempDir()
+	out := filepath.Join(dir, "loop.wav")
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"render", "flight-fast", out}, &stdout, &stderr); code != 0 {
+		t.Fatalf("render failed: %s", stderr.String())
+	}
+	stdout.Reset()
+
+	if code := run([]string{"inspect", out}, &stdout, &stderr); code != 0 {
+		t.Fatalf("inspect failed: %s", stderr.String())
+	}
+	for _, want := range []string{"seam=", "p99="} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Errorf("stdout = %q, missing %q", stdout.String(), want)
+		}
+	}
+}
+
 func TestRunInspectRejectsNonWAV(t *testing.T) {
 	dir := t.TempDir()
 	bogus := filepath.Join(dir, "bogus.wav")

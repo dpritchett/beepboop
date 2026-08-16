@@ -5,6 +5,9 @@ import "beepboop/internal/audio"
 type Preset struct {
 	Name  string
 	Sound audio.Sound
+	// Loop marks a sound built to repeat seamlessly for as long as some
+	// state holds, rather than a one-shot that plays once and stops.
+	Loop bool
 }
 
 func List() []string {
@@ -16,6 +19,8 @@ func List() []string {
 		"turn-ready-soft",
 		"notify-blip",
 		"notify-chime",
+		"flight-fast",
+		"flight-slow",
 	}
 }
 
@@ -107,6 +112,52 @@ func Resolve(name string) (Preset, bool) {
 				Gain:        0.3,
 				Frequencies: []float64{1046.5, 783.99, 659.25},
 				Step:        0.15,
+			}),
+		}, true
+	case "flight-fast":
+		// Jet turbine for fast camera movement. Three ingredients do the
+		// work: a low spool rumble on 110 Hz and its harmonics, a pair of
+		// high blade-pass partials for the characteristic turbine shriek,
+		// and a thick noise bed for moving air. The noise carries most of
+		// the level; the partials give it a pitch to sit on.
+		return Preset{
+			Name: name,
+			Loop: true,
+			Sound: audio.Loop(audio.LoopSpec{
+				SampleRate: 22050,
+				Duration:   2.0,
+				Partials: []audio.Partial{
+					{Frequency: 110, Gain: 0.50},
+					{Frequency: 220, Gain: 0.28},
+					{Frequency: 330, Gain: 0.16},
+					{Frequency: 2180, Gain: 0.11},
+					{Frequency: 3270, Gain: 0.07},
+				},
+				Noise:     0.85,
+				NoiseTone: 0.30,
+				Seed:      1101,
+			}),
+		}, true
+	case "flight-slow":
+		// Droning buzz for slow movement: darker, calmer, and tonal rather
+		// than airy. The 61 and 62 Hz pair beat against each other about
+		// once a second, which keeps a long loop from sounding frozen, and
+		// the noise bed is rolled well off so it reads as a hum, not wind.
+		return Preset{
+			Name: name,
+			Loop: true,
+			Sound: audio.Loop(audio.LoopSpec{
+				SampleRate: 22050,
+				Duration:   2.0,
+				Partials: []audio.Partial{
+					{Frequency: 61, Gain: 0.50},
+					{Frequency: 62, Gain: 0.42, Phase: 0.25},
+					{Frequency: 122, Gain: 0.20},
+					{Frequency: 183, Gain: 0.09},
+				},
+				Noise:     0.22,
+				NoiseTone: 0.08,
+				Seed:      2202,
 			}),
 		}, true
 	default:
