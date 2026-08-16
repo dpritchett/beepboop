@@ -90,31 +90,22 @@ func addPartials(samples []float64, spec LoopSpec, total int) {
 
 // addNoise mixes in a broadband bed that also wraps cleanly.
 //
-// Noise cannot loop on its own, so this generates a slightly longer run and
-// crossfades the overhang back over the start. The result is that the samples
-// leading into the wrap and the samples leading out of it come from one
-// continuous stretch of noise.
+// No crossfade is involved, deliberately. White noise has no continuity to
+// preserve: neighbouring samples are uncorrelated everywhere, so the wrap
+// point is statistically identical to every other sample boundary. Once the
+// tone filter runs circularly, carrying its state across the boundary, the
+// filtered bed is genuinely periodic.
+//
+// An earlier version crossfaded an overhang back over the start, which put a
+// stretch of blended, more-correlated noise at the head of every loop. On a
+// heavily filtered bed that stretch has a different character from the rest
+// and lurches once per repeat. Generating exactly one loop of noise and
+// filtering it circularly has no such region.
 func addNoise(samples []float64, spec LoopSpec, total int) {
-	fade := total / 8
-	if fade < 1 {
-		fade = 1
-	}
 	source := rand.New(rand.NewSource(spec.Seed))
-	raw := make([]float64, total+fade)
-	for i := range raw {
-		raw[i] = source.Float64()*2 - 1
-	}
-
 	noise := make([]float64, total)
-	copy(noise, raw[:total])
-	for i := 0; i < fade && i < total; i++ {
-		// Equal-power, not equal-gain. The two streams being blended are
-		// uncorrelated, so their powers add rather than their amplitudes:
-		// linear gains that sum to 1 leave only half the power at the
-		// midpoint, an audible 3dB sag once per loop. Square-root gains
-		// whose squares sum to 1 hold the level flat.
-		blend := float64(i) / float64(fade)
-		noise[i] = raw[i]*math.Sqrt(blend) + raw[total+i]*math.Sqrt(1-blend)
+	for i := range noise {
+		noise[i] = source.Float64()*2 - 1
 	}
 
 	if tone := spec.NoiseTone; tone > 0 && tone < 1 {

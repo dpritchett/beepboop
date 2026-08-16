@@ -135,6 +135,46 @@ func TestLoopNoiseLevelIsSteadyAcrossTheSeam(t *testing.T) {
 	}
 }
 
+// windowStep returns the mean absolute sample-to-sample step per window, a
+// proxy for how much high-frequency energy each stretch of the buffer holds.
+func windowStep(samples []float64, window int) []float64 {
+	var out []float64
+	for start := 1; start+window <= len(samples); start += window {
+		sum := 0.0
+		for i := start; i < start+window; i++ {
+			sum += math.Abs(samples[i] - samples[i-1])
+		}
+		out = append(out, sum/float64(window))
+	}
+	return out
+}
+
+func TestLoopNoiseTextureIsUniform(t *testing.T) {
+	// Level being flat is not enough. Any stretch of the loop whose noise is
+	// built differently from the rest, such as a blend of two streams across
+	// a crossfade, has different statistics even at matched level. On a
+	// heavily filtered bed that reads as a lurch once per loop.
+	samples := Loop(LoopSpec{
+		SampleRate: 22050,
+		Duration:   2.0,
+		Noise:      1,
+		NoiseTone:  0.10,
+		NoisePoles: 4,
+		Seed:       1101,
+	}).Samples()
+
+	steps := windowStep(samples, 2205) // 100ms
+	sorted := append([]float64(nil), steps...)
+	sort.Float64s(sorted)
+	median := sorted[len(sorted)/2]
+
+	for i, step := range steps {
+		if ratio := step / median; ratio < 0.6 || ratio > 1.6 {
+			t.Errorf("window %d texture is %.2f of median; the loop is not uniform", i, ratio)
+		}
+	}
+}
+
 func TestLoopSnapsPartialsToTheLoopPeriod(t *testing.T) {
 	// Over a 1s loop only whole-Hz partials complete an integer number of
 	// cycles, so 100.4 Hz has to become 100 Hz.
