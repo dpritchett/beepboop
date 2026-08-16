@@ -2,10 +2,13 @@ package main
 
 import (
 	"bytes"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"beepboop/internal/wav"
 )
 
 func TestRunList(t *testing.T) {
@@ -163,10 +166,41 @@ func TestRunInspectReportsSeam(t *testing.T) {
 	if code := run([]string{"inspect", out}, &stdout, &stderr); code != 0 {
 		t.Fatalf("inspect failed: %s", stderr.String())
 	}
-	for _, want := range []string{"seam=", "p99="} {
+	for _, want := range []string{"seam=", "p99=", "maxstep=", "at="} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Errorf("stdout = %q, missing %q", stdout.String(), want)
 		}
+	}
+}
+
+func TestInspectFindsAnInjectedClick(t *testing.T) {
+	// The whole point of reporting the largest step and where it sits is
+	// locating a click. Prove it actually finds one rather than reporting a
+	// number nobody can interpret.
+	dir := t.TempDir()
+	path := filepath.Join(dir, "clicky.wav")
+
+	samples := make([]float64, 4410) // 0.1s at 44100
+	for i := range samples {
+		samples[i] = math.Sin(2 * math.Pi * 100 * float64(i) / 44100)
+	}
+	samples[2205] = -1 // a hard discontinuity halfway through, at 0.050s
+
+	file, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := wav.WritePCM16Mono(file, 44100, samples); err != nil {
+		t.Fatal(err)
+	}
+	file.Close()
+
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"inspect", path}, &stdout, &stderr); code != 0 {
+		t.Fatalf("inspect failed: %s", stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "at=0.050s") {
+		t.Errorf("stdout = %q, want the click located at 0.050s", stdout.String())
 	}
 }
 
