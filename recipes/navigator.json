@@ -1,0 +1,34 @@
+{
+  "voice": {
+    "model": "voices/en_US-lessac-medium.onnx"
+  },
+  "effects": [
+    {"type": "softclip", "drive": 2.2},
+    {"type": "normalize", "peak": 0.72}
+  ],
+  "outputs": [
+    {"name": "select", "say": "target acquired"},
+    {"name": "deselect", "say": "target released"},
+    {"name": "select-miss", "say": "no target"},
+    {"name": "clear", "say": "selection cleared"},
+    {"name": "clear-nothing", "say": "nothing selected"},
+    {"name": "reveal-on", "say": "neighbours revealed"},
+    {"name": "reveal-off", "say": "neighbours hidden"},
+    {"name": "focus", "say": "focusing"},
+    {"name": "search-open", "say": "search ready"},
+    {"name": "search-go", "say": "engaging"},
+    {"name": "search-cancel", "say": "search cancelled"},
+    {"name": "search-empty", "say": "no match"},
+    {"name": "panel-info", "say": "contact summary"},
+    {"name": "panel-source", "say": "source listing"},
+    {"name": "fast-on", "say": "burn"},
+    {"name": "fast-off", "say": "coasting"},
+    {"name": "capture", "say": "controls live"},
+    {"name": "release", "say": "controls released"},
+    {"name": "view-error", "say": "view error, holding last scene",
+     "effects": [
+       {"type": "fuzz", "drive": 3.2, "bias": 0.25},
+       {"type": "normalize", "peak": 0.88}
+     ]}
+  ]
+}

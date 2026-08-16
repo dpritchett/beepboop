@@ -12,8 +12,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"strings"
 
+	"beepboop/internal/audio"
 	"beepboop/internal/effects"
 	"beepboop/internal/pipeline"
 	"beepboop/internal/presets"
@@ -178,34 +180,84 @@ func (r Recipe) renderOutput(out Output, opts Options) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	if err := writeSound(opts, out.Name, source, chain); err != nil {
+	sound, err := renderSound(source, chain)
+	if err != nil {
+		return Result{}, err
+	}
+	if err := writeSound(opts, out.Name, sound); err != nil {
 		return Result{}, err
 	}
 
 	result := Result{Name: out.Name}
 	if text := r.labelText(out); text != "" {
-		// Labels are deliberately dry: no effects chain, so the spoken name
-		// stays intelligible even when the primary sound is heavily fuzzed.
-		label := out.Name + LabelSuffix
-		if err := writeSound(opts, label, r.speak(text, opts), nil); err != nil {
+		label, err := r.renderLabel(text, peakOf(sound), opts)
+		if err != nil {
 			return Result{}, fmt.Errorf("label: %w", err)
 		}
-		result.Label = label
+		name := out.Name + LabelSuffix
+		if err := writeSound(opts, name, label); err != nil {
+			return Result{}, fmt.Errorf("label: %w", err)
+		}
+		result.Label = name
 	}
 	return result, nil
 }
 
-func writeSound(opts Options, name string, source pipeline.Source, chain []pipeline.Effect) error {
+// renderLabel speaks text at the same peak as the sound it labels.
+//
+// Labels skip the recipe's effects chain: a spoken name run through a fuzz
+// pedal cannot do its job. But level is not decoration. Piper normalizes to
+// full scale, so an unmatched label lands roughly three times louder than a
+// gentle notification boop, which is startling in exactly the situation these
+// sounds exist to stay calm in.
+//
+// A silent sound is left alone rather than matched, since a silent label
+// identifies nothing.
+func (r Recipe) renderLabel(text string, level float64, opts Options) (audio.Sound, error) {
+	var chain []pipeline.Effect
+	if level > 0 {
+		chain = []pipeline.Effect{effects.Normalize{Peak: level}}
+	}
+	return renderSound(r.speak(text, opts), chain)
+}
+
+// captureSound is an Exporter that keeps the finished sound so callers can
+// measure it before writing.
+type captureSound struct{ sound audio.Sound }
+
+func (c *captureSound) Export(s audio.Sound) error {
+	c.sound = s
+	return nil
+}
+
+func renderSound(source pipeline.Source, chain []pipeline.Effect) (audio.Sound, error) {
+	capture := &captureSound{}
+	err := pipeline.Pipeline{
+		Source:   source,
+		Effects:  chain,
+		Exporter: capture,
+	}.Run()
+	if err != nil {
+		return nil, err
+	}
+	return capture.sound, nil
+}
+
+func writeSound(opts Options, name string, sound audio.Sound) error {
 	w, err := opts.Open(name)
 	if err != nil {
 		return err
 	}
 	defer w.Close()
-	return pipeline.Pipeline{
-		Source:   source,
-		Effects:  chain,
-		Exporter: pipeline.WAVExporter{W: w},
-	}.Run()
+	return pipeline.WAVExporter{W: w}.Export(sound)
+}
+
+func peakOf(s audio.Sound) float64 {
+	loudest := 0.0
+	for _, v := range s.Samples() {
+		loudest = math.Max(loudest, math.Abs(v))
+	}
+	return loudest
 }
 
 func (r Recipe) sourceFor(out Output, opts Options) (pipeline.Source, error) {

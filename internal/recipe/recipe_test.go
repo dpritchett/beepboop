@@ -55,10 +55,13 @@ func (s *sink) names() []string {
 	return out
 }
 
-// fakePiper emits a fixed loud tone so effects changes are measurable.
+// fakeSpeech stands in for Piper output: full-scale-ish, but only one sample
+// actually at the peak, the way real speech looks and clipped audio does not.
+var fakeSpeech = []float64{0.1, -0.2, 0.5, 0.3, -0.1, 0.2, -0.3, 0.1, 0.05, -0.15}
+
 func fakePiper(_ voice.Command, stdin io.Reader, stdout io.Writer) error {
 	io.ReadAll(stdin)
-	return wav.WritePCM16Mono(stdout, 22050, []float64{0.5, -0.5, 0.25})
+	return wav.WritePCM16Mono(stdout, 22050, fakeSpeech)
 }
 
 func found(string) (string, error)   { return "/usr/bin/piper", nil }
@@ -66,6 +69,22 @@ func missing(string) (string, error) { return "", exec.ErrNotFound }
 
 func options(s *sink) Options {
 	return Options{Open: s.open, Run: fakePiper, LookPath: found}
+}
+
+// atPeak is the fraction of samples sitting at the buffer's peak, a cheap
+// proxy for "this was hard clipped".
+func atPeak(samples []float64) float64 {
+	top := peak(samples)
+	if top == 0 {
+		return 0
+	}
+	count := 0
+	for _, v := range samples {
+		if v >= top-1e-4 || v <= -top+1e-4 {
+			count++
+		}
+	}
+	return float64(count) / float64(len(samples))
 }
 
 func peak(samples []float64) float64 {
@@ -134,8 +153,8 @@ func TestRenderSpokenOutputs(t *testing.T) {
 	if rate != 22050 {
 		t.Errorf("rate = %d, want 22050", rate)
 	}
-	if len(samples) != 3 {
-		t.Errorf("samples = %d, want 3", len(samples))
+	if len(samples) != len(fakeSpeech) {
+		t.Errorf("samples = %d, want %d", len(samples), len(fakeSpeech))
 	}
 	if _, ok := s.files["done"]; !ok {
 		t.Error("second line was not rendered")
@@ -445,14 +464,17 @@ func TestLabelTextCanBeOverridden(t *testing.T) {
 	}
 }
 
-func TestLabelsSkipEffects(t *testing.T) {
+func TestLabelsSkipTheEffectsChain(t *testing.T) {
 	// A label is a spoken index entry. Running it through the recipe's
 	// distortion chain would defeat the point of being able to identify the
-	// file by ear.
+	// file by ear, so only level matching is applied.
 	r, _ := Parse(strings.NewReader(`{
 		"voice": {"model": "voice.onnx"},
 		"labels": true,
-		"effects": [{"type": "normalize", "peak": 0.05}],
+		"effects": [
+			{"type": "gain", "factor": 20},
+			{"type": "hardclip", "threshold": 0.4}
+		],
 		"outputs": [{"name": "x", "preset": "notify-blip"}]
 	}`))
 
@@ -460,13 +482,67 @@ func TestLabelsSkipEffects(t *testing.T) {
 	if _, err := r.Render(options(s)); err != nil {
 		t.Fatalf("Render() error = %v", err)
 	}
-	if _, primary := s.decode(t, "x"); peak(primary) > 0.06 {
-		t.Errorf("primary peak = %v, want the recipe's 0.05", peak(primary))
-	}
-	// fakePiper emits a 0.5 peak; an un-effected label keeps it.
+	// A clipped square wave pins most samples at the threshold; clean speech
+	// does not. Compare how much of each file sits at its own peak.
+	_, primary := s.decode(t, "x")
 	_, label := s.decode(t, "x"+LabelSuffix)
-	if got := peak(label); got < 0.49 {
-		t.Errorf("label peak = %v, want the raw 0.5", got)
+	if atPeak(primary) < 0.5 {
+		t.Fatalf("primary is not clipped (%.2f at peak); test is not measuring anything", atPeak(primary))
+	}
+	if atPeak(label) > 0.5 {
+		t.Errorf("label looks clipped: %.2f of samples at peak", atPeak(label))
+	}
+}
+
+func TestLabelsMatchTheirSoundsLevel(t *testing.T) {
+	// Piper normalizes to full scale, which would make every label roughly
+	// three times louder than the gentle sound it names. Matching the peak
+	// keeps a sound and its label feeling like one unit.
+	r, _ := Parse(strings.NewReader(`{
+		"voice": {"model": "voice.onnx"},
+		"labels": true,
+		"outputs": [
+			{"name": "quiet", "preset": "notify-blip",
+			 "effects": [{"type": "normalize", "peak": 0.2}]},
+			{"name": "loud", "preset": "alarm-urgent",
+			 "effects": [{"type": "normalize", "peak": 0.9}]}
+		]
+	}`))
+
+	s := newSink()
+	if _, err := r.Render(options(s)); err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+	for _, tc := range []struct {
+		name string
+		want float64
+	}{{"quiet", 0.2}, {"loud", 0.9}} {
+		_, label := s.decode(t, tc.name+LabelSuffix)
+		if got := peak(label); got < tc.want-0.01 || got > tc.want+0.01 {
+			t.Errorf("%s label peak = %v, want ~%v", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestSilentSoundLeavesItsLabelAudible(t *testing.T) {
+	// Matching a silent sound would render a silent label, which is useless
+	// for identifying the file. Leave the voice at its own level instead.
+	r, _ := Parse(strings.NewReader(`{
+		"voice": {"model": "voice.onnx"},
+		"labels": true,
+		"outputs": [{"name": "hush", "preset": "notify-blip",
+			"effects": [{"type": "gain", "factor": 0}]}]
+	}`))
+
+	s := newSink()
+	if _, err := r.Render(options(s)); err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+	if _, primary := s.decode(t, "hush"); peak(primary) != 0 {
+		t.Fatalf("primary peak = %v, want silence", peak(primary))
+	}
+	if _, label := s.decode(t, "hush"+LabelSuffix); peak(label) < 0.49 {
+		t.Errorf("label peak = %v, want the voice's own 0.5", peak(label))
 	}
 }
 

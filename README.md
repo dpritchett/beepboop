@@ -82,11 +82,27 @@ dist/turn-ready.label.wav
 
 The name is spoken with `-`, `_`, and `.` as word breaks, so `turn-ready-soft`
 is read "turn ready soft". Set an output's `label` to override the text, or to
-`""` to skip that one. Labels deliberately skip the effects chain so the spoken
-name stays intelligible next to a heavily distorted sound.
+`""` to skip that one.
+
+Labels skip the effects chain, since a spoken name run through a fuzz pedal
+cannot do its job. They do get level-matched: each label is normalized to the
+peak of the sound it names, because Piper normalizes to full scale and an
+unmatched label lands about three times louder than a gentle notification
+boop.
 
 Labels need Piper. Point `BEEPBOOP_VOICE_MODEL` at a `.onnx` voice to override
-the path in a recipe, which keeps checked-in recipes machine-independent.
+the path in a recipe, which keeps checked-in recipes machine-independent:
+
+```sh
+export BEEPBOOP_VOICE_MODEL=~/.local/share/piper/voices/en_US-lessac-medium.onnx
+beepboop bake recipes/dist.json dist
+beepboop inspect dist/*.wav
+```
+
+Piper's VITS models sample noise per run, so beepboop pins `--noise-scale` and
+`--noise-w-scale` to zero. Without that the same line renders differently every
+time and no artifact is reproducible. Override a recipe's `voice.args` to trade
+that back for prosody variation.
 
 ## Target Shape
 
