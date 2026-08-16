@@ -327,6 +327,83 @@ func TestLoopOutputsAreSeamless(t *testing.T) {
 	}
 }
 
+func TestLoopShapesExpandToHarmonicStacks(t *testing.T) {
+	// Chords are the point: a pad is several harmonic stacks at once, and
+	// typing out every partial by hand in JSON would be unusable.
+	r, err := Parse(strings.NewReader(`{"outputs": [{"name": "pad", "loop": {
+		"sample_rate": 22050,
+		"duration": 1.0,
+		"shapes": [
+			{"type": "saw", "fundamental": 110, "limit": 4000, "gain": 0.5},
+			{"type": "triangle", "fundamental": 165, "limit": 4000, "gain": 0.4}
+		]
+	}}]}`))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	s := newSink()
+	if _, err := r.Render(options(s)); err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+	_, samples := s.decode(t, "pad")
+	if len(samples) != 22050 {
+		t.Errorf("samples = %d, want 22050", len(samples))
+	}
+	if peak(samples) == 0 {
+		t.Error("pad rendered silent")
+	}
+}
+
+func TestLoopShapesMixWithExplicitPartials(t *testing.T) {
+	// A shape for the body plus a hand-placed partial for a detune or a
+	// sub is a normal thing to want.
+	r, _ := Parse(strings.NewReader(`{"outputs": [{"name": "mixed", "loop": {
+		"sample_rate": 22050, "duration": 0.5,
+		"partials": [{"frequency": 55, "gain": 0.3}],
+		"shapes": [{"type": "saw", "fundamental": 110, "limit": 2000, "gain": 0.4}]
+	}}]}`))
+
+	s := newSink()
+	if _, err := r.Render(options(s)); err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+	if _, samples := s.decode(t, "mixed"); peak(samples) == 0 {
+		t.Error("rendered silent")
+	}
+}
+
+func TestUnknownShapeTypeIsAnError(t *testing.T) {
+	r, _ := Parse(strings.NewReader(`{"outputs": [{"name": "x", "loop": {
+		"sample_rate": 22050, "duration": 0.5,
+		"shapes": [{"type": "supersaw", "fundamental": 110, "limit": 2000}]
+	}}]}`))
+
+	_, err := r.Render(options(newSink()))
+	if !errors.Is(err, ErrUnknownShape) {
+		t.Fatalf("err = %v, want ErrUnknownShape", err)
+	}
+	if !strings.Contains(err.Error(), "supersaw") {
+		t.Errorf("error %q does not name the bad shape", err)
+	}
+}
+
+func TestShapeLimitDefaultsToNyquist(t *testing.T) {
+	// Omitting the limit should give the full stack rather than silence.
+	r, _ := Parse(strings.NewReader(`{"outputs": [{"name": "x", "loop": {
+		"sample_rate": 22050, "duration": 0.5,
+		"shapes": [{"type": "saw", "fundamental": 220, "gain": 1}]
+	}}]}`))
+
+	s := newSink()
+	if _, err := r.Render(options(s)); err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+	if _, samples := s.decode(t, "x"); peak(samples) == 0 {
+		t.Error("rendered silent; the limit defaulted to zero")
+	}
+}
+
 func TestLoopAndPresetAndSayAreMutuallyExclusive(t *testing.T) {
 	for _, body := range []string{
 		`{"name": "x", "preset": "notify-blip", "loop": {"duration": 0.1}}`,

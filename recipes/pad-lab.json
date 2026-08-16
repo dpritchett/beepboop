@@ -1,0 +1,86 @@
+{
+  "outputs": [
+    {
+      "name": "pad-1-amin9-dark",
+      "loop": {
+        "sample_rate": 22050,
+        "duration": 8.0,
+        "shapes": [
+          {"type": "triangle", "fundamental": 110.00, "limit": 3000, "gain": 0.50},
+          {"type": "triangle", "fundamental": 164.81, "limit": 3000, "gain": 0.34},
+          {"type": "triangle", "fundamental": 196.00, "limit": 3000, "gain": 0.28},
+          {"type": "triangle", "fundamental": 246.94, "limit": 3000, "gain": 0.22},
+          {"type": "triangle", "fundamental": 293.66, "limit": 2400, "gain": 0.16}
+        ],
+        "noise": 0.10,
+        "noise_tone": 0.06,
+        "noise_poles": 4,
+        "seed": 3301
+      },
+      "effects": [{"type": "normalize", "peak": 0.34}]
+    },
+    {
+      "name": "pad-2-amin9-warm",
+      "loop": {
+        "sample_rate": 22050,
+        "duration": 8.0,
+        "shapes": [
+          {"type": "saw", "fundamental": 110.00, "limit": 1800, "gain": 0.34},
+          {"type": "triangle", "fundamental": 164.81, "limit": 3000, "gain": 0.32},
+          {"type": "triangle", "fundamental": 196.00, "limit": 3000, "gain": 0.26},
+          {"type": "saw", "fundamental": 246.94, "limit": 1600, "gain": 0.18},
+          {"type": "triangle", "fundamental": 293.66, "limit": 2400, "gain": 0.16}
+        ],
+        "noise": 0.12,
+        "noise_tone": 0.07,
+        "noise_poles": 4,
+        "seed": 3302
+      },
+      "effects": [
+        {"type": "softclip", "drive": 1.6},
+        {"type": "normalize", "peak": 0.34}
+      ]
+    },
+    {
+      "name": "pad-3-drift",
+      "loop": {
+        "sample_rate": 22050,
+        "duration": 8.0,
+        "partials": [
+          {"frequency": 110.00, "gain": 0.30},
+          {"frequency": 110.25, "gain": 0.26, "phase": 0.25},
+          {"frequency": 164.81, "gain": 0.22},
+          {"frequency": 165.19, "gain": 0.19, "phase": 0.4},
+          {"frequency": 246.94, "gain": 0.16},
+          {"frequency": 247.44, "gain": 0.14, "phase": 0.6},
+          {"frequency": 293.66, "gain": 0.12},
+          {"frequency": 329.63, "gain": 0.09}
+        ],
+        "noise": 0.10,
+        "noise_tone": 0.06,
+        "noise_poles": 4,
+        "seed": 3303
+      },
+      "effects": [{"type": "normalize", "peak": 0.34}]
+    },
+    {
+      "name": "pad-4-wide-fifths",
+      "loop": {
+        "sample_rate": 22050,
+        "duration": 8.0,
+        "shapes": [
+          {"type": "triangle", "fundamental": 55.00, "limit": 1200, "gain": 0.44},
+          {"type": "triangle", "fundamental": 82.41, "limit": 2000, "gain": 0.34},
+          {"type": "triangle", "fundamental": 164.81, "limit": 3000, "gain": 0.26},
+          {"type": "triangle", "fundamental": 246.94, "limit": 3000, "gain": 0.18},
+          {"type": "saw", "fundamental": 329.63, "limit": 1600, "gain": 0.10}
+        ],
+        "noise": 0.14,
+        "noise_tone": 0.05,
+        "noise_poles": 4,
+        "seed": 3304
+      },
+      "effects": [{"type": "normalize", "peak": 0.34}]
+    }
+  ]
+}

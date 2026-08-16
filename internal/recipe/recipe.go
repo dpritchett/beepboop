@@ -34,6 +34,7 @@ var (
 	ErrBadSource     = errors.New("recipe: output needs exactly one of preset or say")
 	ErrUnknownPreset = errors.New("recipe: unknown preset")
 	ErrUnknownEffect = errors.New("recipe: unknown effect type")
+	ErrUnknownShape  = errors.New("recipe: unknown shape type")
 )
 
 // Recipe is a batch of sounds to render with a shared voice and effects chain.
@@ -75,10 +76,13 @@ type LoopSpec struct {
 	SampleRate int           `json:"sample_rate"`
 	Duration   float64       `json:"duration"`
 	Partials   []PartialSpec `json:"partials"`
-	Noise      float64       `json:"noise"`
-	NoiseTone  float64       `json:"noise_tone"`
-	NoisePoles int           `json:"noise_poles"`
-	Seed       int64         `json:"seed"`
+	// Shapes expand to harmonic stacks and are added to Partials. Several
+	// shapes at once is how a chord is written.
+	Shapes     []ShapeSpec `json:"shapes"`
+	Noise      float64     `json:"noise"`
+	NoiseTone  float64     `json:"noise_tone"`
+	NoisePoles int         `json:"noise_poles"`
+	Seed       int64       `json:"seed"`
 }
 
 type PartialSpec struct {
@@ -87,7 +91,46 @@ type PartialSpec struct {
 	Phase     float64 `json:"phase"`
 }
 
-func (s LoopSpec) build() audio.Sound {
+// ShapeSpec is one classic oscillator shape as a harmonic stack.
+type ShapeSpec struct {
+	// Type is saw, square, or triangle.
+	Type        string  `json:"type"`
+	Fundamental float64 `json:"fundamental"`
+	// Limit caps the stack, doubling as a brightness control. Defaults to
+	// Nyquist for the loop's sample rate.
+	Limit float64 `json:"limit"`
+	// Gain scales the whole stack, which is how voices are balanced against
+	// each other in a chord. Defaults to 1.
+	Gain float64 `json:"gain"`
+}
+
+func (s ShapeSpec) build(sampleRate int) ([]audio.Partial, error) {
+	limit := s.Limit
+	if limit <= 0 {
+		limit = float64(sampleRate) / 2
+	}
+	var partials []audio.Partial
+	switch strings.ToLower(s.Type) {
+	case "saw":
+		partials = audio.SawPartials(s.Fundamental, limit)
+	case "square":
+		partials = audio.SquarePartials(s.Fundamental, limit)
+	case "triangle":
+		partials = audio.TrianglePartials(s.Fundamental, limit)
+	default:
+		return nil, fmt.Errorf("%w: %q", ErrUnknownShape, s.Type)
+	}
+	gain := s.Gain
+	if gain == 0 {
+		gain = 1
+	}
+	for i := range partials {
+		partials[i].Gain *= gain
+	}
+	return partials, nil
+}
+
+func (s LoopSpec) build() (audio.Sound, error) {
 	partials := make([]audio.Partial, 0, len(s.Partials))
 	for _, p := range s.Partials {
 		partials = append(partials, audio.Partial{
@@ -95,6 +138,13 @@ func (s LoopSpec) build() audio.Sound {
 			Gain:      p.Gain,
 			Phase:     p.Phase,
 		})
+	}
+	for _, shape := range s.Shapes {
+		expanded, err := shape.build(s.SampleRate)
+		if err != nil {
+			return nil, err
+		}
+		partials = append(partials, expanded...)
 	}
 	return audio.Loop(audio.LoopSpec{
 		SampleRate: s.SampleRate,
@@ -104,7 +154,7 @@ func (s LoopSpec) build() audio.Sound {
 		NoiseTone:  s.NoiseTone,
 		NoisePoles: s.NoisePoles,
 		Seed:       s.Seed,
-	})
+	}), nil
 }
 
 // EffectSpec is a tagged union over the effects package. Every field is
@@ -308,7 +358,11 @@ func peakOf(s audio.Sound) float64 {
 
 func (r Recipe) sourceFor(out Output, opts Options) (pipeline.Source, error) {
 	if out.Loop != nil {
-		return pipeline.StaticSource{Sound: out.Loop.build()}, nil
+		sound, err := out.Loop.build()
+		if err != nil {
+			return nil, err
+		}
+		return pipeline.StaticSource{Sound: sound}, nil
 	}
 	if out.Preset != "" {
 		preset, ok := presets.Resolve(out.Preset)
