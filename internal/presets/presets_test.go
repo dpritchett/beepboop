@@ -134,6 +134,66 @@ func TestFlightPresetsDiffer(t *testing.T) {
 	}
 }
 
+func TestFlightPresetsSitUnderTheVoiceLines(t *testing.T) {
+	// These are continuous beds playing behind spoken callouts rendered at a
+	// 0.72 peak. At full scale they would bury them.
+	for _, tc := range []struct {
+		name string
+		max  float64
+	}{
+		{"flight-fast", 0.45},
+		{"flight-slow", 0.32},
+	} {
+		preset, _ := Resolve(tc.name)
+		peak := 0.0
+		for _, v := range preset.Sound.Samples() {
+			peak = math.Max(peak, math.Abs(v))
+		}
+		if peak > tc.max {
+			t.Errorf("%s peak = %v, want at most %v", tc.name, peak, tc.max)
+		}
+	}
+}
+
+func TestFlightFastIsLouderThanSlow(t *testing.T) {
+	// Speed reads partly as level, so turbo has to actually be hotter.
+	peak := func(name string) float64 {
+		preset, _ := Resolve(name)
+		loudest := 0.0
+		for _, v := range preset.Sound.Samples() {
+			loudest = math.Max(loudest, math.Abs(v))
+		}
+		return loudest
+	}
+	if peak("flight-fast") <= peak("flight-slow") {
+		t.Errorf("flight-fast peak %v is not above flight-slow %v",
+			peak("flight-fast"), peak("flight-slow"))
+	}
+}
+
+func TestFlightPresetsShareARecipeFamily(t *testing.T) {
+	// flight-fast is flight-slow with the filter opened up, so the two
+	// crossfade as one source changing speed rather than swapping sounds.
+	// Both are built on the same 90/180 Hz partials and the same noise seed,
+	// which shows up as matching low-frequency structure.
+	lowEnergy := func(name string) float64 {
+		preset, _ := Resolve(name)
+		samples := preset.Sound.Samples()
+		// A crude lowpass: consecutive-sample averaging keeps the low end.
+		total, prev := 0.0, 0.0
+		for _, v := range samples {
+			smoothed := (v + prev) / 2
+			total += smoothed * smoothed
+			prev = v
+		}
+		return math.Sqrt(total / float64(len(samples)))
+	}
+	fast, slow := lowEnergy("flight-fast"), lowEnergy("flight-slow")
+	if ratio := fast / slow; ratio < 0.8 || ratio > 3.0 {
+		t.Errorf("low-end energy ratio %v suggests unrelated sounds, not one family", ratio)
+	}
+}
+
 func TestFlightPresetsAreDeterministic(t *testing.T) {
 	for _, name := range []string{"flight-fast", "flight-slow"} {
 		first, _ := Resolve(name)

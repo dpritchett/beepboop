@@ -2,24 +2,7 @@
   "effects": [{"type": "normalize", "peak": 0.5}],
   "outputs": [
     {
-      "name": "fast-1-rumble",
-      "loop": {
-        "sample_rate": 22050,
-        "duration": 2.0,
-        "partials": [
-          {"frequency": 55, "gain": 0.55},
-          {"frequency": 110, "gain": 0.40},
-          {"frequency": 165, "gain": 0.22},
-          {"frequency": 220, "gain": 0.12}
-        ],
-        "noise": 0.45,
-        "noise_tone": 0.10,
-        "noise_poles": 4,
-        "seed": 1101
-      }
-    },
-    {
-      "name": "fast-2-airy",
+      "name": "airy-0-baseline",
       "loop": {
         "sample_rate": 22050,
         "duration": 2.0,
@@ -34,39 +17,65 @@
       }
     },
     {
-      "name": "fast-3-turbine",
+      "name": "airy-1-brighter",
       "loop": {
         "sample_rate": 22050,
         "duration": 2.0,
         "partials": [
-          {"frequency": 110, "gain": 0.45},
-          {"frequency": 220, "gain": 0.24},
-          {"frequency": 330, "gain": 0.13},
-          {"frequency": 1460, "gain": 0.035},
-          {"frequency": 1830, "gain": 0.022}
+          {"frequency": 90, "gain": 0.20},
+          {"frequency": 180, "gain": 0.11}
         ],
-        "noise": 0.70,
-        "noise_tone": 0.14,
+        "noise": 0.95,
+        "noise_tone": 0.34,
         "noise_poles": 3,
-        "seed": 1103
+        "seed": 1102
       }
     },
     {
-      "name": "fast-4-engine",
+      "name": "airy-2-higher",
       "loop": {
         "sample_rate": 22050,
         "duration": 2.0,
         "partials": [
-          {"frequency": 82, "gain": 0.50},
-          {"frequency": 164, "gain": 0.30},
-          {"frequency": 246, "gain": 0.18},
-          {"frequency": 328, "gain": 0.10},
-          {"frequency": 410, "gain": 0.06}
+          {"frequency": 145, "gain": 0.22},
+          {"frequency": 290, "gain": 0.12}
         ],
-        "noise": 0.25,
-        "noise_tone": 0.12,
+        "noise": 0.95,
+        "noise_tone": 0.26,
         "noise_poles": 3,
-        "seed": 1104
+        "seed": 1102
+      }
+    },
+    {
+      "name": "airy-3-rougher",
+      "loop": {
+        "sample_rate": 22050,
+        "duration": 2.0,
+        "partials": [
+          {"frequency": 90, "gain": 0.30},
+          {"frequency": 180, "gain": 0.18},
+          {"frequency": 270, "gain": 0.10}
+        ],
+        "noise": 0.95,
+        "noise_tone": 0.30,
+        "noise_poles": 2,
+        "seed": 1102
+      }
+    },
+    {
+      "name": "airy-4-fuller",
+      "loop": {
+        "sample_rate": 22050,
+        "duration": 2.0,
+        "partials": [
+          {"frequency": 45, "gain": 0.34},
+          {"frequency": 90, "gain": 0.24},
+          {"frequency": 180, "gain": 0.13}
+        ],
+        "noise": 0.95,
+        "noise_tone": 0.28,
+        "noise_poles": 3,
+        "seed": 1102
       }
     }
   ]

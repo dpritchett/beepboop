@@ -25,6 +25,8 @@
     {"name": "fast-off", "say": "coasting"},
     {"name": "capture", "say": "controls live"},
     {"name": "release", "say": "controls released"},
+    {"name": "flight-slow", "preset": "flight-slow", "effects": []},
+    {"name": "flight-fast", "preset": "flight-fast", "effects": []},
     {"name": "view-error", "say": "view error, holding last scene",
      "effects": [
        {"type": "fuzz", "drive": 3.2, "bias": 0.25},

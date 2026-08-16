@@ -1,6 +1,16 @@
 package presets
 
-import "beepboop/internal/audio"
+import (
+	"beepboop/internal/audio"
+	"beepboop/internal/effects"
+)
+
+// bedLevel sets a continuous bed's peak. audio.Loop renders at full scale so
+// callers can decide, and a flight bed has to sit well under the voice lines
+// it plays behind rather than competing with them.
+func bedLevel(sound audio.Sound, peak float64) audio.Sound {
+	return effects.Normalize{Peak: peak}.Apply(sound)
+}
 
 type Preset struct {
 	Name  string
@@ -115,50 +125,48 @@ func Resolve(name string) (Preset, bool) {
 			}),
 		}, true
 	case "flight-fast":
-		// Jet turbine for fast camera movement. Three ingredients do the
-		// work: a low spool rumble on 110 Hz and its harmonics, a pair of
-		// high blade-pass partials for the characteristic turbine shriek,
-		// and a thick noise bed for moving air. The noise carries most of
-		// the level; the partials give it a pitch to sit on.
+		// Turbo version of flight-slow, not a different sound. Same airflow
+		// recipe with the tone filter opened up (0.16 to 0.30) and dropped
+		// to two poles, which lets through the harmonics that read as speed,
+		// plus a third partial for body. Keeping the family shared is what
+		// lets the two crossfade as one source changing speed.
 		return Preset{
 			Name: name,
 			Loop: true,
-			Sound: audio.Loop(audio.LoopSpec{
+			Sound: bedLevel(audio.Loop(audio.LoopSpec{
 				SampleRate: 22050,
 				Duration:   2.0,
 				Partials: []audio.Partial{
-					{Frequency: 110, Gain: 0.50},
-					{Frequency: 220, Gain: 0.28},
-					{Frequency: 330, Gain: 0.16},
-					{Frequency: 2180, Gain: 0.11},
-					{Frequency: 3270, Gain: 0.07},
+					{Frequency: 90, Gain: 0.30},
+					{Frequency: 180, Gain: 0.18},
+					{Frequency: 270, Gain: 0.10},
 				},
-				Noise:     0.85,
-				NoiseTone: 0.30,
-				Seed:      1101,
-			}),
+				Noise:      0.95,
+				NoiseTone:  0.30,
+				NoisePoles: 2,
+				Seed:       1102,
+			}), 0.38),
 		}, true
 	case "flight-slow":
-		// Droning buzz for slow movement: darker, calmer, and tonal rather
-		// than airy. The 61 and 62 Hz pair beat against each other about
-		// once a second, which keeps a long loop from sounding frozen, and
-		// the noise bed is rolled well off so it reads as a hum, not wind.
+		// The baseline movement bed: airflow, chosen by ear over rumble,
+		// turbine, and engine candidates. flight-fast is a hotter version of
+		// this same recipe rather than a different sound, so the two
+		// crossfade as one source changing speed instead of swapping.
 		return Preset{
 			Name: name,
 			Loop: true,
-			Sound: audio.Loop(audio.LoopSpec{
+			Sound: bedLevel(audio.Loop(audio.LoopSpec{
 				SampleRate: 22050,
 				Duration:   2.0,
 				Partials: []audio.Partial{
-					{Frequency: 61, Gain: 0.50},
-					{Frequency: 62, Gain: 0.42, Phase: 0.25},
-					{Frequency: 122, Gain: 0.20},
-					{Frequency: 183, Gain: 0.09},
+					{Frequency: 90, Gain: 0.22},
+					{Frequency: 180, Gain: 0.12},
 				},
-				Noise:     0.22,
-				NoiseTone: 0.08,
-				Seed:      2202,
-			}),
+				Noise:      0.95,
+				NoiseTone:  0.16,
+				NoisePoles: 3,
+				Seed:       1102,
+			}), 0.26),
 		}, true
 	default:
 		return Preset{}, false
