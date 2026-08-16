@@ -56,11 +56,14 @@ type VoiceSpec struct {
 // Output is one rendered sound: a name, a source, and optional effects.
 type Output struct {
 	Name string `json:"name"`
-	// Preset names a synthetic sound, Say is a line for the voice, and Loop
-	// defines a repeating sound inline. Exactly one of the three is required.
-	Preset string    `json:"preset"`
-	Say    string    `json:"say"`
-	Loop   *LoopSpec `json:"loop"`
+	// Exactly one source is required. Preset names a synthetic sound, Say is
+	// a line for the voice, Loop defines a repeating bed inline, Sequence
+	// places notes in time, and Layers mixes several of those together.
+	Preset   string        `json:"preset"`
+	Say      string        `json:"say"`
+	Loop     *LoopSpec     `json:"loop"`
+	Sequence *SequenceSpec `json:"sequence"`
+	Layers   []LayerSpec   `json:"layers"`
 	// Effects overrides the recipe chain when present. An explicit empty
 	// list means no effects, which is how a single output opts out.
 	Effects []EffectSpec `json:"effects"`
@@ -157,6 +160,152 @@ func (s LoopSpec) build() (audio.Sound, error) {
 	}), nil
 }
 
+// SequenceSpec places notes on a loop-length grid. Anything overhanging the
+// end wraps to the beginning, so the pattern repeats cleanly.
+type SequenceSpec struct {
+	SampleRate int        `json:"sample_rate"`
+	Duration   float64    `json:"duration"`
+	Notes      []NoteSpec `json:"notes"`
+}
+
+// NoteSpec is one note, or a run of evenly spaced ones.
+type NoteSpec struct {
+	Start     float64 `json:"start"`
+	Duration  float64 `json:"duration"`
+	Frequency float64 `json:"frequency"`
+	// Shape gives the note a timbre: saw, square, triangle, or sine
+	// (the default). Limit caps the harmonic stack.
+	Shape string  `json:"shape"`
+	Limit float64 `json:"limit"`
+	Gain  float64 `json:"gain"`
+	// Attack defaults to 5ms; Decay defaults to 5, higher being pluckier.
+	Attack float64 `json:"attack"`
+	Decay  float64 `json:"decay"`
+	// Repeat and Interval expand one entry into a run of notes, which is
+	// what keeps a pattern from being hundreds of lines of JSON.
+	Repeat   int     `json:"repeat"`
+	Interval float64 `json:"interval"`
+}
+
+func (n NoteSpec) build(sampleRate int) ([]audio.Note, error) {
+	limit := n.Limit
+	if limit <= 0 {
+		limit = float64(sampleRate) / 2
+	}
+	var partials []audio.Partial
+	switch strings.ToLower(n.Shape) {
+	case "", "sine":
+		partials = []audio.Partial{{Frequency: n.Frequency, Gain: 1}}
+	case "saw":
+		partials = audio.SawPartials(n.Frequency, limit)
+	case "square":
+		partials = audio.SquarePartials(n.Frequency, limit)
+	case "triangle":
+		partials = audio.TrianglePartials(n.Frequency, limit)
+	default:
+		return nil, fmt.Errorf("%w: %q", ErrUnknownShape, n.Shape)
+	}
+
+	gain := n.Gain
+	if gain == 0 {
+		gain = 1
+	}
+	repeat := n.Repeat
+	if repeat < 1 {
+		repeat = 1
+	}
+
+	notes := make([]audio.Note, 0, repeat)
+	for i := 0; i < repeat; i++ {
+		notes = append(notes, audio.Note{
+			Start:    n.Start + float64(i)*n.Interval,
+			Duration: n.Duration,
+			Partials: partials,
+			Gain:     gain,
+			Attack:   n.Attack,
+			Decay:    n.Decay,
+		})
+	}
+	return notes, nil
+}
+
+func (s SequenceSpec) build() (audio.Sound, error) {
+	var notes []audio.Note
+	for _, spec := range s.Notes {
+		built, err := spec.build(s.SampleRate)
+		if err != nil {
+			return nil, err
+		}
+		notes = append(notes, built...)
+	}
+	return audio.Sequence(audio.SequenceSpec{
+		SampleRate: s.SampleRate,
+		Duration:   s.Duration,
+		Notes:      notes,
+	}), nil
+}
+
+// LayerSpec is one voice in a mix: a bed or a pattern, at a relative level.
+type LayerSpec struct {
+	Loop     *LoopSpec     `json:"loop"`
+	Sequence *SequenceSpec `json:"sequence"`
+	Gain     float64       `json:"gain"`
+}
+
+func (l LayerSpec) build() (audio.Sound, float64, error) {
+	gain := l.Gain
+	if gain == 0 {
+		gain = 1
+	}
+	switch {
+	case l.Loop != nil && l.Sequence != nil:
+		return nil, 0, errors.New("recipe: layer sets both loop and sequence")
+	case l.Loop != nil:
+		sound, err := l.Loop.build()
+		return sound, gain, err
+	case l.Sequence != nil:
+		sound, err := l.Sequence.build()
+		return sound, gain, err
+	default:
+		return nil, 0, errors.New("recipe: layer has no loop or sequence")
+	}
+}
+
+// mixLayers sums layers at their gains. Layers are expected to share a sample
+// rate and length; the longest wins and shorter ones simply stop, which is
+// what a one-shot over a bed should do.
+func mixLayers(layers []LayerSpec) (audio.Sound, error) {
+	rate, longest := 0, 0
+	sounds := make([]audio.Sound, 0, len(layers))
+	gains := make([]float64, 0, len(layers))
+
+	for _, layer := range layers {
+		sound, gain, err := layer.build()
+		if err != nil {
+			return nil, err
+		}
+		if rate == 0 {
+			rate = sound.SampleRate()
+		} else if sound.SampleRate() != rate {
+			return nil, fmt.Errorf("recipe: layer sample rate %d does not match %d",
+				sound.SampleRate(), rate)
+		}
+		if n := len(sound.Samples()); n > longest {
+			longest = n
+		}
+		sounds = append(sounds, sound)
+		gains = append(gains, gain)
+	}
+
+	mixed := make([]float64, longest)
+	for i, sound := range sounds {
+		for j, v := range sound.Samples() {
+			mixed[j] += v * gains[i]
+		}
+	}
+	return audio.NewSound(rate, mixed), nil
+}
+
 // EffectSpec is a tagged union over the effects package. Every field is
 // optional; only the ones the named type reads are used.
 type EffectSpec struct {
@@ -230,7 +379,10 @@ func (r Recipe) validate(opts Options) error {
 		seen[out.Name] = true
 
 		sources := 0
-		for _, set := range []bool{out.Preset != "", out.Say != "", out.Loop != nil} {
+		for _, set := range []bool{
+			out.Preset != "", out.Say != "", out.Loop != nil,
+			out.Sequence != nil, len(out.Layers) > 0,
+		} {
 			if set {
 				sources++
 			}
@@ -359,6 +511,20 @@ func peakOf(s audio.Sound) float64 {
 func (r Recipe) sourceFor(out Output, opts Options) (pipeline.Source, error) {
 	if out.Loop != nil {
 		sound, err := out.Loop.build()
+		if err != nil {
+			return nil, err
+		}
+		return pipeline.StaticSource{Sound: sound}, nil
+	}
+	if out.Sequence != nil {
+		sound, err := out.Sequence.build()
+		if err != nil {
+			return nil, err
+		}
+		return pipeline.StaticSource{Sound: sound}, nil
+	}
+	if len(out.Layers) > 0 {
+		sound, err := mixLayers(out.Layers)
 		if err != nil {
 			return nil, err
 		}

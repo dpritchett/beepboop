@@ -1,0 +1,142 @@
+{
+  "outputs": [
+    {
+      "name": "music-1-arp-above",
+      "layers": [
+        {
+          "gain": 0.7,
+          "loop": {
+            "sample_rate": 22050,
+            "duration": 8.0,
+            "shapes": [
+              {"type": "triangle", "fundamental": 110.00, "limit": 2600, "gain": 0.50},
+              {"type": "triangle", "fundamental": 164.81, "limit": 2600, "gain": 0.32},
+              {"type": "triangle", "fundamental": 196.00, "limit": 2600, "gain": 0.26},
+              {"type": "triangle", "fundamental": 246.94, "limit": 2600, "gain": 0.20}
+            ],
+            "noise": 0.10,
+            "noise_tone": 0.06,
+            "noise_poles": 4,
+            "seed": 3301
+          }
+        },
+        {
+          "gain": 0.9,
+          "sequence": {
+            "sample_rate": 22050,
+            "duration": 8.0,
+            "notes": [
+              {"start": 0.00, "duration": 0.45, "frequency": 880.00, "shape": "triangle", "limit": 8000, "gain": 0.30, "decay": 7, "repeat": 8, "interval": 1.0},
+              {"start": 0.50, "duration": 0.40, "frequency": 1318.51, "shape": "triangle", "limit": 8000, "gain": 0.18, "decay": 9, "repeat": 8, "interval": 1.0},
+              {"start": 0.25, "duration": 0.35, "frequency": 1760.00, "shape": "sine", "gain": 0.12, "decay": 11, "repeat": 8, "interval": 1.0}
+            ]
+          }
+        }
+      ],
+      "effects": [{"type": "normalize", "peak": 0.36}]
+    },
+    {
+      "name": "music-2-bass-below",
+      "layers": [
+        {
+          "gain": 0.6,
+          "loop": {
+            "sample_rate": 22050,
+            "duration": 8.0,
+            "shapes": [
+              {"type": "triangle", "fundamental": 164.81, "limit": 2600, "gain": 0.34},
+              {"type": "triangle", "fundamental": 196.00, "limit": 2600, "gain": 0.28},
+              {"type": "triangle", "fundamental": 246.94, "limit": 2600, "gain": 0.22}
+            ],
+            "noise": 0.10,
+            "noise_tone": 0.06,
+            "noise_poles": 4,
+            "seed": 3302
+          }
+        },
+        {
+          "gain": 1.0,
+          "sequence": {
+            "sample_rate": 22050,
+            "duration": 8.0,
+            "notes": [
+              {"start": 0.00, "duration": 0.55, "frequency": 55.00, "shape": "triangle", "limit": 900, "gain": 0.55, "decay": 5, "repeat": 4, "interval": 2.0},
+              {"start": 1.00, "duration": 0.45, "frequency": 82.41, "shape": "triangle", "limit": 900, "gain": 0.40, "decay": 6, "repeat": 4, "interval": 2.0},
+              {"start": 1.50, "duration": 0.35, "frequency": 110.00, "shape": "triangle", "limit": 1200, "gain": 0.30, "decay": 8, "repeat": 4, "interval": 2.0}
+            ]
+          }
+        }
+      ],
+      "effects": [{"type": "normalize", "peak": 0.36}]
+    },
+    {
+      "name": "music-3-both",
+      "layers": [
+        {
+          "gain": 0.55,
+          "loop": {
+            "sample_rate": 22050,
+            "duration": 8.0,
+            "shapes": [
+              {"type": "triangle", "fundamental": 110.00, "limit": 2400, "gain": 0.44},
+              {"type": "triangle", "fundamental": 164.81, "limit": 2400, "gain": 0.28},
+              {"type": "triangle", "fundamental": 246.94, "limit": 2400, "gain": 0.20}
+            ],
+            "noise": 0.10,
+            "noise_tone": 0.06,
+            "noise_poles": 4,
+            "seed": 3303
+          }
+        },
+        {
+          "gain": 0.85,
+          "sequence": {
+            "sample_rate": 22050,
+            "duration": 8.0,
+            "notes": [
+              {"start": 0.00, "duration": 0.55, "frequency": 55.00, "shape": "triangle", "limit": 900, "gain": 0.50, "decay": 5, "repeat": 4, "interval": 2.0},
+              {"start": 0.00, "duration": 0.40, "frequency": 880.00, "shape": "triangle", "limit": 8000, "gain": 0.26, "decay": 8, "repeat": 8, "interval": 1.0},
+              {"start": 0.50, "duration": 0.35, "frequency": 1318.51, "shape": "sine", "gain": 0.16, "decay": 10, "repeat": 8, "interval": 1.0},
+              {"start": 3.75, "duration": 0.60, "frequency": 1760.00, "shape": "sine", "gain": 0.14, "decay": 6, "repeat": 2, "interval": 4.0}
+            ]
+          }
+        }
+      ],
+      "effects": [{"type": "normalize", "peak": 0.36}]
+    },
+    {
+      "name": "music-4-sparse",
+      "layers": [
+        {
+          "gain": 0.7,
+          "loop": {
+            "sample_rate": 22050,
+            "duration": 8.0,
+            "shapes": [
+              {"type": "triangle", "fundamental": 110.00, "limit": 2000, "gain": 0.46},
+              {"type": "triangle", "fundamental": 164.81, "limit": 2000, "gain": 0.26}
+            ],
+            "noise": 0.12,
+            "noise_tone": 0.05,
+            "noise_poles": 4,
+            "seed": 3304
+          }
+        },
+        {
+          "gain": 0.9,
+          "sequence": {
+            "sample_rate": 22050,
+            "duration": 8.0,
+            "notes": [
+              {"start": 0.00, "duration": 0.90, "frequency": 659.25, "shape": "sine", "gain": 0.26, "decay": 4},
+              {"start": 2.50, "duration": 0.90, "frequency": 880.00, "shape": "sine", "gain": 0.22, "decay": 4},
+              {"start": 4.75, "duration": 0.90, "frequency": 987.77, "shape": "sine", "gain": 0.20, "decay": 4},
+              {"start": 6.25, "duration": 1.20, "frequency": 493.88, "shape": "triangle", "limit": 6000, "gain": 0.24, "decay": 3}
+            ]
+          }
+        }
+      ],
+      "effects": [{"type": "normalize", "peak": 0.36}]
+    }
+  ]
+}
