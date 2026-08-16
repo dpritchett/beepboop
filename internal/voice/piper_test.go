@@ -87,9 +87,46 @@ func TestPiperBuildsDefaultCommand(t *testing.T) {
 	if fake.gotCommand.Name != "piper" {
 		t.Errorf("command = %q, want %q", fake.gotCommand.Name, "piper")
 	}
-	want := []string{"--model", "voice.onnx", "--output_file", "-"}
+	want := []string{
+		"--model", "voice.onnx",
+		"--noise-scale", "0",
+		"--noise-w-scale", "0",
+		"--output_file", "-",
+	}
 	if got := strings.Join(fake.gotCommand.Args, " "); got != strings.Join(want, " ") {
 		t.Errorf("args = %v, want %v", fake.gotCommand.Args, want)
+	}
+}
+
+func TestPiperDefaultsPinNoiseForDeterminism(t *testing.T) {
+	// Piper's VITS models sample noise per run; without these pinned, the
+	// same line yields different audio every time and no rendered artifact
+	// is reproducible. Guard the flags so nobody drops them as clutter.
+	fake := &fakeRun{rate: 22050, samples: []float64{0.1}}
+	p := Piper{Model: "voice.onnx", Text: "hi", Run: fake.run, LookPath: found}
+
+	if _, err := p.Render(); err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+	joined := strings.Join(fake.gotCommand.Args, " ")
+	for _, want := range []string{"--noise-scale 0", "--noise-w-scale 0"} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("args %q missing %q", joined, want)
+		}
+	}
+}
+
+func TestPiperDefaultsWriteToStdout(t *testing.T) {
+	// With no output flag piper plays to the speakers and writes nothing,
+	// which reads as an empty-output bug a long way from the cause.
+	fake := &fakeRun{rate: 22050, samples: []float64{0.1}}
+	p := Piper{Model: "voice.onnx", Text: "hi", Run: fake.run, LookPath: found}
+
+	if _, err := p.Render(); err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+	if !strings.Contains(strings.Join(fake.gotCommand.Args, " "), "--output_file -") {
+		t.Errorf("args = %v, want an explicit stdout output flag", fake.gotCommand.Args)
 	}
 }
 

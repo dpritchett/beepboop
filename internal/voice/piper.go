@@ -76,6 +76,26 @@ func (p Piper) Available() error {
 	return nil
 }
 
+// defaultArgs builds the argv for a deterministic render to stdout.
+//
+// The noise scales matter more than they look. Piper's VITS models sample
+// noise per run, so the same line synthesized three times produced 30764,
+// 26668, and 30252 bytes of audio here. Pinning both to zero makes the output
+// byte-identical run to run, which is the whole contract this project sells:
+// artifacts reproducible from source. It costs some prosody variation, which
+// for a spoken file label is no loss at all. Override Args to get it back.
+//
+// "-f -" is required, not decorative. With no output flag piper plays the
+// audio through the speakers instead of writing anything to stdout.
+func defaultArgs(model string) []string {
+	return []string{
+		"--model", model,
+		"--noise-scale", "0",
+		"--noise-w-scale", "0",
+		"--output_file", "-",
+	}
+}
+
 func (p Piper) binary() string {
 	if p.Binary == "" {
 		return "piper"
@@ -99,7 +119,7 @@ func (p Piper) Render() (audio.Sound, error) {
 
 	args := p.Args
 	if args == nil {
-		args = []string{"--model", p.Model, "--output_file", "-"}
+		args = defaultArgs(p.Model)
 	}
 
 	// Piper reads one line of text per utterance from stdin. Keeping the text

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"beepboop/internal/presets"
 	"beepboop/internal/recipe"
 	"beepboop/internal/voice"
+	"beepboop/internal/wav"
 )
 
 // voiceModelEnv overrides a recipe's Piper voice model path.
@@ -53,6 +55,16 @@ func run(args []string, stdout, stderr io.Writer) int {
 			return 1
 		}
 		return 0
+	case "inspect":
+		if len(args) < 2 {
+			fmt.Fprintln(stderr, "usage: beepboop inspect <file.wav>...")
+			return 2
+		}
+		if err := inspect(args[1:], stdout); err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+		return 0
 	case "preview":
 		if len(args) != 2 {
 			fmt.Fprintln(stderr, "usage: beepboop preview <preset>")
@@ -70,11 +82,37 @@ func run(args []string, stdout, stderr io.Writer) int {
 }
 
 func usage(w io.Writer) {
-	fmt.Fprintln(w, "usage: beepboop <list|render|bake|preview>")
+	fmt.Fprintln(w, "usage: beepboop <list|render|bake|inspect|preview>")
 	fmt.Fprintln(w, "  list                            list available presets")
 	fmt.Fprintln(w, "  render <preset> <output.wav>    render one preset")
 	fmt.Fprintln(w, "  bake <recipe.json> <outdir>     batch-render a recipe")
+	fmt.Fprintln(w, "  inspect <file.wav>...           report rate, length, peak")
 	fmt.Fprintln(w, "  preview <preset>                render and play locally")
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "  BEEPBOOP_VOICE_MODEL overrides a recipe's Piper voice model path.")
+}
+
+// inspect reports rate, length, and peak for rendered WAVs, so verifying an
+// artifact is a repo capability rather than a throwaway script each time.
+func inspect(paths []string, stdout io.Writer) error {
+	for _, path := range paths {
+		file, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		rate, samples, err := wav.ReadPCM16Mono(file)
+		file.Close()
+		if err != nil {
+			return fmt.Errorf("%s: %w", path, err)
+		}
+		peak := 0.0
+		for _, sample := range samples {
+			peak = math.Max(peak, math.Abs(sample))
+		}
+		fmt.Fprintf(stdout, "%s\trate=%d\tsamples=%d\tdur=%.3fs\tpeak=%.2f\n",
+			path, rate, len(samples), float64(len(samples))/float64(rate), peak)
+	}
+	return nil
 }
 
 // bake renders every output in a recipe into outdir as <name>.wav. Spoken

@@ -126,6 +126,43 @@ func TestRunBakeMissingRecipe(t *testing.T) {
 	}
 }
 
+func TestRunInspect(t *testing.T) {
+	dir := t.TempDir()
+	out := filepath.Join(dir, "blip.wav")
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"render", "notify-blip", out}, &stdout, &stderr); code != 0 {
+		t.Fatalf("render failed: %s", stderr.String())
+	}
+	stdout.Reset()
+
+	code := run([]string{"inspect", out}, &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("run(inspect) code = %d, stderr = %s", code, stderr.String())
+	}
+	// notify-blip is 0.14s at 44100 with a 0.25 gain.
+	for _, want := range []string{"44100", "0.140", "0.25"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Errorf("stdout = %q, missing %q", stdout.String(), want)
+		}
+	}
+}
+
+func TestRunInspectRejectsNonWAV(t *testing.T) {
+	dir := t.TempDir()
+	bogus := filepath.Join(dir, "bogus.wav")
+	if err := os.WriteFile(bogus, []byte("not a wav at all"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+
+	code := run([]string{"inspect", bogus}, &stdout, &stderr)
+
+	if code == 0 {
+		t.Fatal("run(inspect) code = 0, want failure")
+	}
+}
+
 func TestRunUnknownPreset(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 
