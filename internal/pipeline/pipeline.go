@@ -79,6 +79,21 @@ func (s StaticSource) Render() (audio.Sound, error) {
 	return s.Sound, nil
 }
 
+// WAVSource decodes PCM16 mono WAV from an injected reader, letting a
+// previously rendered artifact or a Piper-generated file re-enter a pipeline
+// for further processing.
+type WAVSource struct {
+	R io.Reader
+}
+
+func (s WAVSource) Render() (audio.Sound, error) {
+	rate, samples, err := wav.ReadPCM16Mono(s.R)
+	if err != nil {
+		return nil, err
+	}
+	return audio.NewSound(rate, samples), nil
+}
+
 // WAVExporter writes PCM16 mono WAV to an injected writer.
 type WAVExporter struct {
 	W io.Writer

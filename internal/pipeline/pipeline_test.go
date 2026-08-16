@@ -3,6 +3,7 @@ package pipeline
 import (
 	"bytes"
 	"errors"
+	"math"
 	"testing"
 
 	"beepboop/internal/audio"
@@ -153,6 +154,47 @@ func TestRunSourceErrorPropagates(t *testing.T) {
 	err := Pipeline{Source: erroringSource{err: sentinel}, Exporter: &captureExporter{}}.Run()
 	if !errors.Is(err, sentinel) {
 		t.Errorf("err = %v, want %v", err, sentinel)
+	}
+}
+
+func TestWAVSourceDecodesWrittenAudio(t *testing.T) {
+	// Export then re-import: the round trip is what lets Piper output and
+	// previously rendered artifacts re-enter a pipeline.
+	var buf bytes.Buffer
+	if err := (Pipeline{
+		Source:   newSource(8000, 0.0, 0.5, -0.5),
+		Exporter: WAVExporter{W: &buf},
+	}).Run(); err != nil {
+		t.Fatalf("export error = %v", err)
+	}
+
+	cap := &captureExporter{}
+	p := Pipeline{Source: WAVSource{R: &buf}, Exporter: cap}
+	if err := p.Run(); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if got := cap.sound.SampleRate(); got != 8000 {
+		t.Errorf("SampleRate() = %d, want 8000", got)
+	}
+	got := cap.sound.Samples()
+	want := []float64{0.0, 0.5, -0.5}
+	if len(got) != len(want) {
+		t.Fatalf("sample count = %d, want %d", len(got), len(want))
+	}
+	for i := range want {
+		if math.Abs(got[i]-want[i]) > 1.0/32767.0 {
+			t.Errorf("sample[%d] = %v, want %v", i, got[i], want[i])
+		}
+	}
+}
+
+func TestWAVSourceErrorPropagates(t *testing.T) {
+	p := Pipeline{
+		Source:   WAVSource{R: bytes.NewReader([]byte("definitely not a wav"))},
+		Exporter: &captureExporter{},
+	}
+	if err := p.Run(); err == nil {
+		t.Error("Run() error = nil, want a decode error")
 	}
 }
 
