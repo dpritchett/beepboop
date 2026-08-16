@@ -31,6 +31,10 @@ type LoopSpec struct {
 	// NoiseTone darkens that noise, 0 to 1. Near 1 is open hiss; low values
 	// roll off the top for the thicker roar of moving air.
 	NoiseTone float64
+	// NoisePoles cascades the tone filter. One pole is a gentle 6dB per
+	// octave that still leaves audible hiss; three or four is what makes a
+	// noise bed read as a low roar rather than static. Defaults to 1.
+	NoisePoles int
 	// Seed fixes the noise so a given spec always renders the same bytes.
 	Seed int64
 }
@@ -114,7 +118,13 @@ func addNoise(samples []float64, spec LoopSpec, total int) {
 	}
 
 	if tone := spec.NoiseTone; tone > 0 && tone < 1 {
-		lowpass(noise, tone)
+		poles := spec.NoisePoles
+		if poles < 1 {
+			poles = 1
+		}
+		for i := 0; i < poles; i++ {
+			lowpass(noise, tone)
+		}
 	}
 	for i := range samples {
 		samples[i] += noise[i] * spec.Noise

@@ -247,6 +247,32 @@ func TestLoopNoiseToneDarkensTheNoise(t *testing.T) {
 	}
 }
 
+func TestLoopNoisePolesSteepenTheRolloff(t *testing.T) {
+	// One pole is only 6dB per octave, which leaves plenty of hiss on top of
+	// what should read as a low roar. Cascading poles is what turns the bed
+	// from "white noise" into "moving air".
+	spec := LoopSpec{SampleRate: 22050, Duration: 0.3, Noise: 1, NoiseTone: 0.25, Seed: 9}
+	one, four := spec, spec
+	one.NoisePoles, four.NoisePoles = 1, 4
+
+	gentle := maxStep(Loop(one).Samples())
+	steep := maxStep(Loop(four).Samples())
+	if steep >= gentle {
+		t.Errorf("four-pole step %v is not below one-pole %v", steep, gentle)
+	}
+}
+
+func TestLoopNoisePolesStaySeamless(t *testing.T) {
+	got := Loop(LoopSpec{
+		SampleRate: 22050, Duration: 0.5, Noise: 1, NoiseTone: 0.2,
+		NoisePoles: 4, Seed: 9,
+	}).Samples()
+
+	if seam, step := seamStep(got), maxStep(got); seam > step {
+		t.Errorf("seam jump %v exceeds largest in-buffer step %v", seam, step)
+	}
+}
+
 func TestLoopEmptySpecIsSilence(t *testing.T) {
 	got := Loop(LoopSpec{SampleRate: 8000, Duration: 0.1}).Samples()
 	if len(got) != 800 {

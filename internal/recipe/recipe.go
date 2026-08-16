@@ -55,16 +55,56 @@ type VoiceSpec struct {
 // Output is one rendered sound: a name, a source, and optional effects.
 type Output struct {
 	Name string `json:"name"`
-	// Preset names a synthetic sound; Say is a line for the voice. Exactly
-	// one of the two is required.
-	Preset string `json:"preset"`
-	Say    string `json:"say"`
+	// Preset names a synthetic sound, Say is a line for the voice, and Loop
+	// defines a repeating sound inline. Exactly one of the three is required.
+	Preset string    `json:"preset"`
+	Say    string    `json:"say"`
+	Loop   *LoopSpec `json:"loop"`
 	// Effects overrides the recipe chain when present. An explicit empty
 	// list means no effects, which is how a single output opts out.
 	Effects []EffectSpec `json:"effects"`
 	// Label overrides the spoken label text. An explicit empty string opts
 	// this output out of labeling.
 	Label *string `json:"label"`
+}
+
+// LoopSpec defines a seamlessly repeating sound inline in the recipe, so
+// tuning a turbine or a drone is an edit and a rebake rather than a Go change
+// and a recompile. Fields mirror audio.LoopSpec.
+type LoopSpec struct {
+	SampleRate int           `json:"sample_rate"`
+	Duration   float64       `json:"duration"`
+	Partials   []PartialSpec `json:"partials"`
+	Noise      float64       `json:"noise"`
+	NoiseTone  float64       `json:"noise_tone"`
+	NoisePoles int           `json:"noise_poles"`
+	Seed       int64         `json:"seed"`
+}
+
+type PartialSpec struct {
+	Frequency float64 `json:"frequency"`
+	Gain      float64 `json:"gain"`
+	Phase     float64 `json:"phase"`
+}
+
+func (s LoopSpec) build() audio.Sound {
+	partials := make([]audio.Partial, 0, len(s.Partials))
+	for _, p := range s.Partials {
+		partials = append(partials, audio.Partial{
+			Frequency: p.Frequency,
+			Gain:      p.Gain,
+			Phase:     p.Phase,
+		})
+	}
+	return audio.Loop(audio.LoopSpec{
+		SampleRate: s.SampleRate,
+		Duration:   s.Duration,
+		Partials:   partials,
+		Noise:      s.Noise,
+		NoiseTone:  s.NoiseTone,
+		NoisePoles: s.NoisePoles,
+		Seed:       s.Seed,
+	})
 }
 
 // EffectSpec is a tagged union over the effects package. Every field is
@@ -139,7 +179,13 @@ func (r Recipe) validate(opts Options) error {
 		}
 		seen[out.Name] = true
 
-		if (out.Preset == "") == (out.Say == "") {
+		sources := 0
+		for _, set := range []bool{out.Preset != "", out.Say != "", out.Loop != nil} {
+			if set {
+				sources++
+			}
+		}
+		if sources != 1 {
 			return fmt.Errorf("%w: %q", ErrBadSource, out.Name)
 		}
 		if out.Say != "" {
@@ -261,6 +307,9 @@ func peakOf(s audio.Sound) float64 {
 }
 
 func (r Recipe) sourceFor(out Output, opts Options) (pipeline.Source, error) {
+	if out.Loop != nil {
+		return pipeline.StaticSource{Sound: out.Loop.build()}, nil
+	}
 	if out.Preset != "" {
 		preset, ok := presets.Resolve(out.Preset)
 		if !ok {

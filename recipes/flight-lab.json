@@ -1,0 +1,73 @@
+{
+  "effects": [{"type": "normalize", "peak": 0.5}],
+  "outputs": [
+    {
+      "name": "fast-1-rumble",
+      "loop": {
+        "sample_rate": 22050,
+        "duration": 2.0,
+        "partials": [
+          {"frequency": 55, "gain": 0.55},
+          {"frequency": 110, "gain": 0.40},
+          {"frequency": 165, "gain": 0.22},
+          {"frequency": 220, "gain": 0.12}
+        ],
+        "noise": 0.45,
+        "noise_tone": 0.10,
+        "noise_poles": 4,
+        "seed": 1101
+      }
+    },
+    {
+      "name": "fast-2-airy",
+      "loop": {
+        "sample_rate": 22050,
+        "duration": 2.0,
+        "partials": [
+          {"frequency": 90, "gain": 0.22},
+          {"frequency": 180, "gain": 0.12}
+        ],
+        "noise": 0.95,
+        "noise_tone": 0.16,
+        "noise_poles": 3,
+        "seed": 1102
+      }
+    },
+    {
+      "name": "fast-3-turbine",
+      "loop": {
+        "sample_rate": 22050,
+        "duration": 2.0,
+        "partials": [
+          {"frequency": 110, "gain": 0.45},
+          {"frequency": 220, "gain": 0.24},
+          {"frequency": 330, "gain": 0.13},
+          {"frequency": 1460, "gain": 0.035},
+          {"frequency": 1830, "gain": 0.022}
+        ],
+        "noise": 0.70,
+        "noise_tone": 0.14,
+        "noise_poles": 3,
+        "seed": 1103
+      }
+    },
+    {
+      "name": "fast-4-engine",
+      "loop": {
+        "sample_rate": 22050,
+        "duration": 2.0,
+        "partials": [
+          {"frequency": 82, "gain": 0.50},
+          {"frequency": 164, "gain": 0.30},
+          {"frequency": 246, "gain": 0.18},
+          {"frequency": 328, "gain": 0.10},
+          {"frequency": 410, "gain": 0.06}
+        ],
+        "noise": 0.25,
+        "noise_tone": 0.12,
+        "noise_poles": 3,
+        "seed": 1104
+      }
+    }
+  ]
+}

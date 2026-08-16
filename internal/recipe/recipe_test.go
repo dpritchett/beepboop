@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"math"
 	"os/exec"
 	"strings"
 	"testing"
@@ -269,6 +270,91 @@ func TestUnknownEffectTypeIsAnError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "reverb") {
 		t.Errorf("error %q does not name the bad effect", err)
+	}
+}
+
+func TestLoopOutputsRenderFromTheRecipe(t *testing.T) {
+	// Sound design is an iteration loop with a human ear in it. Defining a
+	// loop in the recipe means retuning a turbine is an edit and a rebake,
+	// not a Go change and a recompile.
+	r, err := Parse(strings.NewReader(`{"outputs": [{"name": "turbine", "loop": {
+		"sample_rate": 22050,
+		"duration": 1.0,
+		"partials": [
+			{"frequency": 110, "gain": 0.5},
+			{"frequency": 220, "gain": 0.25}
+		],
+		"noise": 0.6,
+		"noise_tone": 0.2,
+		"noise_poles": 3,
+		"seed": 4
+	}}]}`))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	s := newSink()
+	if _, err := r.Render(options(s)); err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+	rate, samples := s.decode(t, "turbine")
+	if rate != 22050 {
+		t.Errorf("rate = %d, want 22050", rate)
+	}
+	if len(samples) != 22050 {
+		t.Errorf("samples = %d, want 22050", len(samples))
+	}
+}
+
+func TestLoopOutputsAreSeamless(t *testing.T) {
+	r, _ := Parse(strings.NewReader(`{"outputs": [{"name": "hum", "loop": {
+		"sample_rate": 22050, "duration": 0.5,
+		"partials": [{"frequency": 97.3, "gain": 0.6}],
+		"noise": 0.4, "seed": 8
+	}}]}`))
+
+	s := newSink()
+	if _, err := r.Render(options(s)); err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+	_, samples := s.decode(t, "hum")
+	worst := 0.0
+	for i := 1; i < len(samples); i++ {
+		worst = math.Max(worst, math.Abs(samples[i]-samples[i-1]))
+	}
+	if seam := math.Abs(samples[0] - samples[len(samples)-1]); seam > worst {
+		t.Errorf("seam %v exceeds largest in-buffer step %v", seam, worst)
+	}
+}
+
+func TestLoopAndPresetAndSayAreMutuallyExclusive(t *testing.T) {
+	for _, body := range []string{
+		`{"name": "x", "preset": "notify-blip", "loop": {"duration": 0.1}}`,
+		`{"name": "x", "say": "hi", "loop": {"duration": 0.1}}`,
+	} {
+		r, _ := Parse(strings.NewReader(`{"voice": {"model": "v.onnx"},
+			"outputs": [` + body + `]}`))
+		if _, err := r.Render(options(newSink())); !errors.Is(err, ErrBadSource) {
+			t.Errorf("%s: err = %v, want ErrBadSource", body, err)
+		}
+	}
+}
+
+func TestLoopOutputsTakeEffects(t *testing.T) {
+	// Loops render at full scale by design, so a recipe has to be able to
+	// sit them under the voice lines.
+	r, _ := Parse(strings.NewReader(`{"outputs": [{"name": "bed",
+		"loop": {"sample_rate": 22050, "duration": 0.5,
+			"partials": [{"frequency": 100, "gain": 1}]},
+		"effects": [{"type": "normalize", "peak": 0.35}]}]}`))
+
+	s := newSink()
+	if _, err := r.Render(options(s)); err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+	_, samples := s.decode(t, "bed")
+	if got := peak(samples); got < 0.34 || got > 0.36 {
+		t.Errorf("peak = %v, want ~0.35", got)
 	}
 }
 
