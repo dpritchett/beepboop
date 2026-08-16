@@ -1,0 +1,15 @@
+{
+  "voice": {
+    "model": "voices/en_US-lessac-medium.onnx"
+  },
+  "labels": true,
+  "outputs": [
+    {"name": "alarm-basic", "preset": "alarm-basic"},
+    {"name": "alarm-urgent", "preset": "alarm-urgent"},
+    {"name": "soft-reminder", "preset": "soft-reminder"},
+    {"name": "turn-ready", "preset": "turn-ready"},
+    {"name": "turn-ready-soft", "preset": "turn-ready-soft"},
+    {"name": "notify-blip", "preset": "notify-blip"},
+    {"name": "notify-chime", "preset": "notify-chime"}
+  ]
+}

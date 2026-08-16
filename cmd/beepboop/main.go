@@ -10,7 +10,12 @@ import (
 	"beepboop/internal/pipeline"
 	"beepboop/internal/player"
 	"beepboop/internal/presets"
+	"beepboop/internal/recipe"
+	"beepboop/internal/voice"
 )
+
+// voiceModelEnv overrides a recipe's Piper voice model path.
+const voiceModelEnv = "BEEPBOOP_VOICE_MODEL"
 
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
@@ -38,6 +43,16 @@ func run(args []string, stdout, stderr io.Writer) int {
 			return 1
 		}
 		return 0
+	case "bake":
+		if len(args) != 3 {
+			fmt.Fprintln(stderr, "usage: beepboop bake <recipe.json> <outdir>")
+			return 2
+		}
+		if err := bake(args[1], args[2], stdout); err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+		return 0
 	case "preview":
 		if len(args) != 2 {
 			fmt.Fprintln(stderr, "usage: beepboop preview <preset>")
@@ -55,7 +70,53 @@ func run(args []string, stdout, stderr io.Writer) int {
 }
 
 func usage(w io.Writer) {
-	fmt.Fprintln(w, "usage: beepboop <list|render|preview>")
+	fmt.Fprintln(w, "usage: beepboop <list|render|bake|preview>")
+	fmt.Fprintln(w, "  list                            list available presets")
+	fmt.Fprintln(w, "  render <preset> <output.wav>    render one preset")
+	fmt.Fprintln(w, "  bake <recipe.json> <outdir>     batch-render a recipe")
+	fmt.Fprintln(w, "  preview <preset>                render and play locally")
+}
+
+// bake renders every output in a recipe into outdir as <name>.wav. Spoken
+// labels land beside their sound as <name>.label.wav.
+func bake(recipePath, outDir string, stdout io.Writer) error {
+	file, err := os.Open(recipePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	spec, err := recipe.Parse(file)
+	if err != nil {
+		return err
+	}
+	// Voice models are multi-megabyte files living wherever the operator put
+	// them, so a checked-in recipe cannot name a portable path. The env var
+	// keeps the recipe machine-independent.
+	if model := os.Getenv(voiceModelEnv); model != "" {
+		spec.Voice.Model = model
+	}
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		return err
+	}
+
+	results, err := spec.Render(recipe.Options{
+		Open: func(name string) (io.WriteCloser, error) {
+			return os.Create(filepath.Join(outDir, name+".wav"))
+		},
+		Run:      voice.SystemRunner,
+		LookPath: voice.SystemLookPath,
+	})
+	if err != nil {
+		return err
+	}
+	for _, result := range results {
+		fmt.Fprintf(stdout, "%s.wav\n", filepath.Join(outDir, result.Name))
+		if result.Label != "" {
+			fmt.Fprintf(stdout, "%s.wav\n", filepath.Join(outDir, result.Label))
+		}
+	}
+	return nil
 }
 
 func render(name, output string) error {

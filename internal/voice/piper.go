@@ -56,6 +56,33 @@ type Piper struct {
 	LookPath LookPath
 }
 
+// Available reports whether this Piper is configured and its binary is on
+// PATH, without synthesizing anything. Batch callers use it to fail before
+// writing the first file instead of part way through a directory.
+func (p Piper) Available() error {
+	if p.Model == "" {
+		return ErrNoModel
+	}
+	if p.Run == nil {
+		return errors.New("voice: no command runner configured")
+	}
+	if p.LookPath == nil {
+		return nil
+	}
+	if _, err := p.LookPath(p.binary()); err != nil {
+		return fmt.Errorf("%w: install piper or set Binary (%q): %v",
+			ErrPiperNotFound, p.binary(), err)
+	}
+	return nil
+}
+
+func (p Piper) binary() string {
+	if p.Binary == "" {
+		return "piper"
+	}
+	return p.Binary
+}
+
 // Render speaks Text and decodes the resulting WAV.
 //
 // Piper writes a WAV stream to stdout, which we buffer and hand to the same
@@ -63,25 +90,11 @@ type Piper struct {
 // the line length, which for notification-sized lines is nothing, and it
 // keeps the decode path identical to every other source.
 func (p Piper) Render() (audio.Sound, error) {
-	if p.Model == "" {
-		return nil, ErrNoModel
+	if err := p.Available(); err != nil {
+		return nil, err
 	}
 	if strings.TrimSpace(p.Text) == "" {
 		return nil, ErrNoText
-	}
-	if p.Run == nil {
-		return nil, errors.New("voice: no command runner configured")
-	}
-
-	binary := p.Binary
-	if binary == "" {
-		binary = "piper"
-	}
-	if p.LookPath != nil {
-		if _, err := p.LookPath(binary); err != nil {
-			return nil, fmt.Errorf("%w: install piper or set Binary (%q): %v",
-				ErrPiperNotFound, binary, err)
-		}
 	}
 
 	args := p.Args
@@ -93,7 +106,7 @@ func (p Piper) Render() (audio.Sound, error) {
 	// out of argv avoids flag injection from arbitrary lines and argv limits.
 	stdin := strings.NewReader(strings.TrimSpace(p.Text) + "\n")
 	var stdout bytes.Buffer
-	if err := p.Run(Command{Name: binary, Args: args}, stdin, &stdout); err != nil {
+	if err := p.Run(Command{Name: p.binary(), Args: args}, stdin, &stdout); err != nil {
 		return nil, fmt.Errorf("voice: piper failed: %w", err)
 	}
 

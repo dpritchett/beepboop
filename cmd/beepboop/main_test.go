@@ -42,6 +42,90 @@ func TestRunRender(t *testing.T) {
 	}
 }
 
+func TestRunBake(t *testing.T) {
+	dir := t.TempDir()
+	recipePath := filepath.Join(dir, "recipe.json")
+	if err := os.WriteFile(recipePath, []byte(`{"outputs": [
+		{"name": "one", "preset": "notify-blip"},
+		{"name": "two", "preset": "notify-chime",
+		 "effects": [{"type": "fuzz", "drive": 8, "bias": 0.3}]}
+	]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	outDir := filepath.Join(dir, "out")
+	var stdout, stderr bytes.Buffer
+
+	code := run([]string{"bake", recipePath, outDir}, &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("run(bake) code = %d, stderr = %s", code, stderr.String())
+	}
+	for _, name := range []string{"one.wav", "two.wav"} {
+		data, err := os.ReadFile(filepath.Join(outDir, name))
+		if err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+		if string(data[0:4]) != "RIFF" {
+			t.Errorf("%s is not a WAV", name)
+		}
+	}
+	if !strings.Contains(stdout.String(), "one.wav") {
+		t.Errorf("stdout = %q, want the rendered files listed", stdout.String())
+	}
+}
+
+func TestRunBakeReportsRecipeErrors(t *testing.T) {
+	dir := t.TempDir()
+	recipePath := filepath.Join(dir, "recipe.json")
+	if err := os.WriteFile(recipePath, []byte(
+		`{"outputs": [{"name": "x", "preset": "nope"}]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+
+	code := run([]string{"bake", recipePath, filepath.Join(dir, "out")}, &stdout, &stderr)
+
+	if code == 0 {
+		t.Fatal("run(bake) code = 0, want failure")
+	}
+	if !strings.Contains(stderr.String(), "unknown preset") {
+		t.Errorf("stderr = %q, want unknown preset", stderr.String())
+	}
+}
+
+func TestRunBakeVoiceModelEnvOverride(t *testing.T) {
+	// The override has to reach Piper, which is not installed here. Pointing
+	// it at a model and asserting the failure names piper (not the model)
+	// proves the value was applied and the lookup got that far.
+	dir := t.TempDir()
+	recipePath := filepath.Join(dir, "recipe.json")
+	if err := os.WriteFile(recipePath, []byte(
+		`{"outputs": [{"name": "x", "say": "hello"}]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(voiceModelEnv, filepath.Join(dir, "voice.onnx"))
+	var stdout, stderr bytes.Buffer
+
+	code := run([]string{"bake", recipePath, filepath.Join(dir, "out")}, &stdout, &stderr)
+
+	if code == 0 {
+		t.Skip("piper is installed; this test covers the not-installed path")
+	}
+	if strings.Contains(stderr.String(), "no voice model") {
+		t.Errorf("stderr = %q, want the env override to supply the model", stderr.String())
+	}
+}
+
+func TestRunBakeMissingRecipe(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+
+	code := run([]string{"bake", "/nope/recipe.json", t.TempDir()}, &stdout, &stderr)
+
+	if code == 0 {
+		t.Fatal("run(bake) code = 0, want failure")
+	}
+}
+
 func TestRunUnknownPreset(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 

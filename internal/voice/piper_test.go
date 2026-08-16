@@ -170,6 +170,37 @@ func TestPiperGarbageOutputIsAnError(t *testing.T) {
 	}
 }
 
+func TestPiperAvailableChecksWithoutRendering(t *testing.T) {
+	// Callers batch-rendering many lines need to know Piper works before
+	// writing the first file, without paying for a synthesis run.
+	ran := false
+	spy := func(Command, io.Reader, io.Writer) error { ran = true; return nil }
+	p := Piper{Model: "voice.onnx", Run: spy, LookPath: found}
+
+	if err := p.Available(); err != nil {
+		t.Errorf("Available() = %v, want nil", err)
+	}
+	if ran {
+		t.Error("Available() spawned the process")
+	}
+}
+
+func TestPiperAvailableReportsMissingBinary(t *testing.T) {
+	p := Piper{Model: "voice.onnx", Run: (&fakeRun{}).run, LookPath: missing}
+
+	if err := p.Available(); !errors.Is(err, ErrPiperNotFound) {
+		t.Errorf("Available() = %v, want ErrPiperNotFound", err)
+	}
+}
+
+func TestPiperAvailableReportsMissingModel(t *testing.T) {
+	p := Piper{Run: (&fakeRun{}).run, LookPath: found}
+
+	if err := p.Available(); !errors.Is(err, ErrNoModel) {
+		t.Errorf("Available() = %v, want ErrNoModel", err)
+	}
+}
+
 func TestPiperFeedsThePipeline(t *testing.T) {
 	// End to end through the spine: Piper as Source, WAV back out.
 	fake := &fakeRun{rate: 22050, samples: []float64{0.2, -0.4}}
