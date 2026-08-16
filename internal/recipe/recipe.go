@@ -315,6 +315,8 @@ type EffectSpec struct {
 	Drive     float64 `json:"drive"`
 	Bias      float64 `json:"bias"`
 	Peak      float64 `json:"peak"`
+	Cutoff    float64 `json:"cutoff"`
+	Poles     int     `json:"poles"`
 }
 
 // Options injects everything ambient: where output goes and how the voice
@@ -602,6 +604,8 @@ func (s EffectSpec) build() (pipeline.Effect, error) {
 		return effects.Fuzz{Drive: s.Drive, Bias: s.Bias}, nil
 	case "normalize":
 		return effects.Normalize{Peak: s.Peak}, nil
+	case "highpass":
+		return effects.HighPass{Cutoff: s.Cutoff, Poles: s.Poles}, nil
 	default:
 		return nil, fmt.Errorf("%w: %q", ErrUnknownEffect, s.Type)
 	}

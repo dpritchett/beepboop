@@ -248,6 +248,7 @@ func TestAllEffectTypesResolve(t *testing.T) {
 		`{"type": "softclip", "drive": 3}`,
 		`{"type": "fuzz", "drive": 8, "bias": 0.3}`,
 		`{"type": "normalize", "peak": 0.9}`,
+		`{"type": "highpass", "cutoff": 300, "poles": 2}`,
 	} {
 		r, err := Parse(strings.NewReader(`{"outputs": [{"name": "x",
 			"preset": "notify-blip", "effects": [` + spec + `]}]}`))
