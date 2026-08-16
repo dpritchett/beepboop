@@ -104,8 +104,13 @@ func addNoise(samples []float64, spec LoopSpec, total int) {
 	noise := make([]float64, total)
 	copy(noise, raw[:total])
 	for i := 0; i < fade && i < total; i++ {
+		// Equal-power, not equal-gain. The two streams being blended are
+		// uncorrelated, so their powers add rather than their amplitudes:
+		// linear gains that sum to 1 leave only half the power at the
+		// midpoint, an audible 3dB sag once per loop. Square-root gains
+		// whose squares sum to 1 hold the level flat.
 		blend := float64(i) / float64(fade)
-		noise[i] = raw[i]*blend + raw[total+i]*(1-blend)
+		noise[i] = raw[i]*math.Sqrt(blend) + raw[total+i]*math.Sqrt(1-blend)
 	}
 
 	if tone := spec.NoiseTone; tone > 0 && tone < 1 {

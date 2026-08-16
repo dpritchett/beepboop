@@ -2,6 +2,7 @@ package audio
 
 import (
 	"math"
+	"sort"
 	"testing"
 )
 
@@ -72,6 +73,65 @@ func TestLoopIsSeamlessWithNoise(t *testing.T) {
 
 	if seam, step := seamStep(got), maxStep(got); seam > step {
 		t.Errorf("seam jump %v exceeds largest in-buffer step %v", seam, step)
+	}
+}
+
+// windowRMS returns the RMS level of each fixed-size window in order.
+func windowRMS(samples []float64, window int) []float64 {
+	var out []float64
+	for start := 0; start+window <= len(samples); start += window {
+		sum := 0.0
+		for _, v := range samples[start : start+window] {
+			sum += v * v
+		}
+		out = append(out, math.Sqrt(sum/float64(window)))
+	}
+	return out
+}
+
+func TestLoopNoiseHasNoLevelDip(t *testing.T) {
+	// Crossfading two uncorrelated noise streams with linear gains loses 3dB
+	// of power at the midpoint, which is audible as the level sagging and
+	// recovering once per loop. Equal-power gains are required here, and
+	// nothing about the seam-continuity test catches this.
+	samples := Loop(LoopSpec{
+		SampleRate: 22050,
+		Duration:   2.0,
+		Noise:      1,
+		NoiseTone:  1,
+		Seed:       11,
+	}).Samples()
+
+	levels := windowRMS(samples, 551) // 25ms
+	sorted := append([]float64(nil), levels...)
+	sort.Float64s(sorted)
+	median := sorted[len(sorted)/2]
+	quietest := sorted[0]
+
+	if quietest/median < 0.85 {
+		t.Errorf("quietest 25ms window is %.3f of median (%.4f vs %.4f); the loop dips",
+			quietest/median, quietest, median)
+	}
+}
+
+func TestLoopNoiseLevelIsSteadyAcrossTheSeam(t *testing.T) {
+	// The dip lands wherever the crossfade sits, so compare the windows
+	// bracketing the wrap against the body of the loop specifically.
+	samples := Loop(LoopSpec{
+		SampleRate: 22050,
+		Duration:   1.0,
+		Noise:      1,
+		NoiseTone:  1,
+		Seed:       12,
+	}).Samples()
+
+	window := 551
+	levels := windowRMS(samples, window)
+	body := levels[len(levels)/2]
+	for _, i := range []int{0, 1, 2, len(levels) - 1} {
+		if ratio := levels[i] / body; ratio < 0.85 || ratio > 1.18 {
+			t.Errorf("window %d level is %.3f of mid-loop level, want near 1", i, ratio)
+		}
 	}
 }
 
