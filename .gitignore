@@ -1,5 +1,6 @@
 # Rendered audio are build artifacts, reproducible from source presets.
 # Keep the durable recipe (internal/presets) checked in, not the output.
-dist/*.wav
+# Recipes bake into subdirectories too, so match at any depth.
+dist/**/*.wav
 # alarm-basic.wav is the one intentional sample artifact (see README).
 !dist/alarm-basic.wav
