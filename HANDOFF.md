@@ -49,6 +49,50 @@ guarded by tests in `internal/voice`:
 - Without `--noise-scale 0 --noise-w-scale 0` the same line renders
   differently every run (observed 30764, 26668, and 30252 bytes for one line).
 
+## Music: where it stands (2026-08-16)
+
+The engine now has what music needs except rhythm and movement:
+`audio.Sequence` (notes in time with attack/decay envelopes, wrapping across
+the loop boundary), harmonic shapes (`SawPartials`, `SquarePartials`,
+`TrianglePartials`), recipe `layers` for mixing a pad under a pattern, and a
+loop-safe `HighPass`. All drivable from JSON, no Go edits: see
+`recipes/music-lab.json`.
+
+**Daniel's verdict: `music-3-both` and `music-4-sparse` work, `music-1` and
+`music-2` do not.** The two that work are opposites, which is the useful part:
+`music-3` grooves at a 0.5s pulse, roughly 120 BPM, and `music-4` is ambient
+with events every two seconds or more. Both rejected tracks sit at exactly 1.0s
+spacing.
+
+Read that as a rule: **commit to a groove or commit to ambient, and stay out of
+the one-event-per-second middle**, where the ear tracks the repetition but
+nothing drives. It also means the two survivors map onto the two things Daniel
+originally asked for, a chill bed (`music-4`) and a driving one (`music-3`),
+rather than one being better than the other.
+
+Two rounds of feedback got us here, both worth remembering:
+
+- Triangle stacks read as single drones. The 1/n squared falloff puts nearly
+  all energy in the fundamental, so a triangle stack is barely distinguishable
+  from a sine. Saw at 1/n is what makes a chord sound like a chord.
+- Stacked voices pile up under 200Hz and the sum reads as mud. Raising the
+  register and high-passing at 180 to 220Hz fixed it; turning voices down did
+  not.
+
+### Next for music
+
+1. **Drums**, on the `music-3` branch only. Noise bursts with fast envelopes:
+   kick is a pitch-swept sine, snare noise plus tone, hats filtered noise.
+   Small now that sequencing exists. Start from `music-3-both` and put a kick
+   on the 0.5s grid it already has. Leave `music-4` percussion-free; sparse is
+   what makes it work.
+2. **Filter movement over time.** A resonant filter with a moving cutoff is
+   what makes electronic music breathe rather than repeat. This is the one
+   genuinely new piece of DSP left, and the payoff sound of the genre.
+3. Longer loops for the ambient branch. Eight seconds is short enough to
+   notice; `music-4` would carry 30 to 60 seconds cheaply since it is sparse,
+   and length is the cheapest cure for hearing the repeat.
+
 ## Next up
 
 1. **#6 MP3 export** — an `Exporter` shelling out to an injected encoder,
