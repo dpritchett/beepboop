@@ -4,3 +4,9 @@
 dist/**/*.wav
 # alarm-basic.wav is the one intentional sample artifact (see README).
 !dist/alarm-basic.wav
+
+# Dev-only Python tooling for dodo.py; the library is Go.
+.venv/
+__pycache__/
+.doit.db*
+uv.lock

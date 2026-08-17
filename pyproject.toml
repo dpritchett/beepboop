@@ -1,0 +1,9 @@
+# Python here is dev tooling only -- audition tasks in dodo.py. The library is
+# Go and standard-library-only; nothing in the test suite or the render path
+# touches this file.
+[project]
+name = "beepboop-dev"
+version = "0.1.0"
+description = "Dev-only task runner for beepboop; the library itself is Go"
+requires-python = ">=3.11"
+dependencies = ["doit>=0.36"]

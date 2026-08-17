@@ -1,0 +1,53 @@
+{
+  "effects": [],
+  "outputs": [
+    {"name": "turn-1-round",
+     "sequence": {"sample_rate": 44100, "duration": 0.55,
+       "notes": [
+         {"start": 0, "duration": 0.45, "frequency": 622.25, "gain": 0.18,
+          "attack": 0.025, "decay": 5}
+       ]}},
+
+    {"name": "turn-2-mallet",
+     "sequence": {"sample_rate": 44100, "duration": 0.55,
+       "notes": [
+         {"start": 0, "duration": 0.40, "frequency": 622.25, "gain": 0.16,
+          "attack": 0.015, "decay": 8},
+         {"start": 0, "duration": 0.25, "frequency": 1244.5, "gain": 0.05,
+          "attack": 0.015, "decay": 12}
+       ]}},
+
+    {"name": "turn-3-lower",
+     "sequence": {"sample_rate": 44100, "duration": 0.65,
+       "notes": [
+         {"start": 0, "duration": 0.55, "frequency": 466.16, "gain": 0.20,
+          "attack": 0.030, "decay": 4}
+       ]}},
+
+    {"name": "blocked-1-double",
+     "sequence": {"sample_rate": 44100, "duration": 0.70,
+       "notes": [
+         {"start": 0, "duration": 0.45, "frequency": 622.25, "gain": 0.20,
+          "attack": 0.020, "decay": 7, "repeat": 2, "interval": 0.14}
+       ]}},
+
+    {"name": "blocked-2-rising",
+     "sequence": {"sample_rate": 44100, "duration": 0.70,
+       "notes": [
+         {"start": 0, "duration": 0.40, "frequency": 587.33, "gain": 0.19,
+          "attack": 0.018, "decay": 7},
+         {"start": 0.15, "duration": 0.45, "frequency": 783.99, "gain": 0.19,
+          "attack": 0.018, "decay": 7}
+       ]}},
+
+    {"name": "blocked-3-triple",
+     "sequence": {"sample_rate": 44100, "duration": 0.70,
+       "notes": [
+         {"start": 0, "duration": 0.30, "frequency": 622.25, "gain": 0.18,
+          "attack": 0.015, "decay": 9, "repeat": 3, "interval": 0.11}
+       ]}},
+
+    {"name": "ref-current-your-turn", "preset": "notify-blip", "effects": []},
+    {"name": "ref-current-blocked", "preset": "notify-chime", "effects": []}
+  ]
+}
