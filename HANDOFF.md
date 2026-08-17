@@ -36,7 +36,7 @@ recipes render end to end:
 ```sh
 export BEEPBOOP_VOICE_MODEL=~/.local/share/piper/voices/en_US-lessac-medium.onnx
 beepboop bake recipes/dist.json dist          # 7 presets + 7 spoken labels
-beepboop bake recipes/navigator.json dist/navigator   # 19 UI voice lines
+beepboop bake recipes/navigator.json dist/navigator   # 23 cues: 19 spoken, 4 preset
 ```
 
 All 14 `dist/` artifacts verified byte-identical across re-bakes, and
@@ -49,58 +49,109 @@ guarded by tests in `internal/voice`:
 - Without `--noise-scale 0 --noise-w-scale 0` the same line renders
   differently every run (observed 30764, 26668, and 30252 bytes for one line).
 
-## Music: where it stands (2026-08-16)
+## Music moved to beatshop (2026-08-17)
 
-The engine now has what music needs except rhythm and movement:
-`audio.Sequence` (notes in time with attack/decay envelopes, wrapping across
-the loop boundary), harmonic shapes (`SawPartials`, `SquarePartials`,
-`TrianglePartials`), recipe `layers` for mixing a pad under a pattern, and a
-loop-safe `HighPass`. All drivable from JSON, no Go edits: see
-`recipes/music-lab.json`.
+**Do not build music here.** `../beatshop` renders it now, by driving
+SuperCollider's `scsynth` in non-realtime mode from Python, and Daniel's verdict
+is that it does the job vastly better than this engine did. Its `apollo-v1.flac`
+has already shipped into callscape and replaced the pair of eight-second loops
+that came out of the music lab.
 
-**Daniel's verdict: `music-3-both` and `music-4-sparse` work, `music-1` and
-`music-2` do not.** The two that work are opposites, which is the useful part:
-`music-3` grooves at a 0.5s pulse, roughly 120 BPM, and `music-4` is ambient
-with events every two seconds or more. Both rejected tracks sit at exactly 1.0s
-spacing.
+That settles the split recorded in the README: beepboop bakes voice lines,
+earcons, SFX, and the state-reactive loop beds; beatshop composes music.
 
-Read that as a rule: **commit to a groove or commit to ambient, and stay out of
-the one-event-per-second middle**, where the ear tracks the repetition but
-nothing drives. It also means the two survivors map onto the two things Daniel
-originally asked for, a chill bed (`music-4`) and a driving one (`music-3`),
-rather than one being better than the other.
+What is dead here as a result:
 
-Two rounds of feedback got us here, both worth remembering:
+- **The "Next for music" list.** Drums, filter movement, and longer ambient
+  loops were all beatshop's problem the moment it existed. Filter movement in
+  particular is already built there -- an LFO through `LinExp.kr` into cascaded
+  `LPF.ar`, with the range and period exposed as recipe dials -- so building it
+  again here would be duplicating the better version.
+- **`recipes/music-lab.json`.** The four candidates it bakes are superseded.
+  Left on disk rather than deleted, since it costs nothing and documents how the
+  verdict below was reached, but nothing should be built on it. Fair game to
+  delete whenever Daniel wants the repo tidier.
 
-- Triangle stacks read as single drones. The 1/n squared falloff puts nearly
-  all energy in the fundamental, so a triangle stack is barely distinguishable
-  from a sine. Saw at 1/n is what makes a chord sound like a chord.
-- Stacked voices pile up under 200Hz and the sum reads as mud. Raising the
-  register and high-passing at 180 to 220Hz fixed it; turning voices down did
+What is *not* dead: `audio.Sequence`, the harmonic shapes, recipe `layers`, and
+the loop-safe `HighPass` all stay. Multi-note earcons want envelopes and
+sequencing exactly as much as music did, and the flight beds still live here.
+
+### Findings worth carrying to beatshop
+
+These came from listening, not from code, so they survive the move and are the
+one part of the music work worth keeping:
+
+- **Commit to a groove or commit to ambient, and stay out of the
+  one-event-per-second middle.** `music-3` grooved at a 0.5s pulse and worked;
+  `music-4` was ambient at two seconds or more and worked; both rejected tracks
+  sat at exactly 1.0s spacing, where the ear tracks the repetition but nothing
+  drives it.
+- **Triangle stacks read as single drones.** The 1/n squared falloff puts nearly
+  all the energy in the fundamental, so a triangle stack is barely
+  distinguishable from a sine. Saw at 1/n is what makes a chord sound like a
+  chord.
+- **Stacked voices pile up under 200Hz and the sum reads as mud.** Raising the
+  register and high-passing at 180 to 220Hz fixed it. Turning voices down did
   not.
+- Length is the cheapest cure for hearing a loop repeat, and a sparse ambient
+  bed carries a long one cheaply.
 
-### Next for music
+## Callscape's two asks are settled (2026-08-17)
 
-1. **Drums**, on the `music-3` branch only. Noise bursts with fast envelopes:
-   kick is a pitch-swept sine, snare noise plus tone, hats filtered noise.
-   Small now that sequencing exists. Start from `music-3-both` and put a kick
-   on the 0.5s grid it already has. Leave `music-4` percussion-free; sparse is
-   what makes it work.
-2. **Filter movement over time.** A resonant filter with a moving cutoff is
-   what makes electronic music breathe rather than repeat. This is the one
-   genuinely new piece of DSP left, and the payoff sound of the genre.
-3. Longer loops for the ambient branch. Eight seconds is short enough to
-   notice; `music-4` would carry 30 to 60 seconds cheaply since it is sparse,
-   and length is the cheapest cure for hearing the repeat.
+`make sounds` in callscape bakes `recipes/navigator.json` into
+`web/public/sounds`. Both asks are now resolved.
+
+### The remote handover: done
+
+`remote-on` and `remote-off` are committed. They fill the two slugs callscape
+had wired and silent since July -- the remote taking the wheel and giving it
+back. Deliberately presets rather than `say`: the wheel changing hands is a
+state change, and a state change wants an earcon, not a sentence read out while
+somebody is flying.
+
+The direction carries the meaning. Falling when control leaves you
+(`notify-chime`, C6 down to E5); rising when it comes back (`turn-ready`, E5 up
+to A5, whose own note here is "it's your turn", which is exactly what getting
+the wheel back is).
+
+**The determinism claim is now properly tested.** Baking the whole recipe into
+an empty scratch directory and diffing against callscape's committed tree
+produced all 23 WAVs byte-identical, with `apollo-v1.flac` correctly untouched.
+That is a cold render matching a months-old artifact set, which is a stronger
+result than the earlier same-tree rebake.
+
+### The `flip` whoosh: went to beatshop
+
+Callscape's flip -- half a turn to see what is behind you -- wants "something
+wooshy that evokes movement and maybe thrusters", one-shot, under about half a
+second. Nothing on the app side changes when it lands; it already logs
+`voice.missing {cue: "flip"}`.
+
+No preset here fits, and the gap was a primitive rather than a recipe:
+`AlternatingTone` is tonal, `Loop` is deliberately envelope-free so it can wrap,
+and `lowpass` takes one fixed coefficient. A whoosh is a filter that **moves**.
+
+Beatshop already has that primitive, so Daniel routed the work there. The brief
+is `../beatshop/HANDOFF.md`, including how to get noise without breaking its
+no-server-RNG rule. Nothing is owed from this repo.
+
+The cost of the routing, recorded honestly: callscape asked for the whoosh to
+share the `flight-slow`/`flight-fast` noise family so it reads as those engines,
+and that does not survive the move to a different synthesis engine. If it lands
+sounding like a stock effect, that is why, and the fix would be building sweep
+support here after all.
 
 ## Next up
 
-1. **#6 MP3 export** — an `Exporter` shelling out to an injected encoder,
+1. **#6 MP3 export** -- an `Exporter` shelling out to an injected encoder,
    mirroring how Piper is wired. The navigator set is 764K of WAV for a
    browser project, so this is the next real need, not a nice-to-have.
-2. Consider synthetic SFX rather than speech for the navigator's
-   high-frequency events (`select`, `capture`, `release`, `fast-on/off`); a
-   one-second spoken line per click will overlap itself.
+2. **Earcons to retire voice lines.** Callscape is moving away from spoken
+   lines toward earcons as it becomes a fluid interactive game, starting with
+   the high-frequency events (`select`, `capture`, `release`, `fast-on/off`)
+   where a one-second line overlaps itself. Which cues change is callscape's
+   call, not this repo's; the job here is having earcons ready when asked.
+   See "Kinds of sound" in the README for the tradeoff.
 3. Consider an espeak adapter as a zero-install fallback voice; the `Runner`
    interface already accommodates it.
 

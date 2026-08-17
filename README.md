@@ -29,6 +29,54 @@ audio files.
 - Check in large voice models or unstable generated experiments.
 - Optimize for professional audio production before the generated sounds are
   pleasant and useful.
+- Compose or render background music. That is beatshop's job; see below.
+
+## Kinds of sound
+
+Four different jobs, often confused because they all come out of a speaker.
+Picking the wrong kind is the most common way an app's audio ends up annoying,
+so it is worth naming them. Which kind a given event should use is the calling
+app's decision, not beepboop's -- this is a menu, not a policy.
+
+**Voice lines.** Synthesized speech, roughly a second each. Self-documenting: a
+first-time user needs no training to understand "no match". The catch is that
+speech does not layer. Two lines at once are mush and you can parse neither, so
+any event that can fire twice in a second will talk over itself. Expensive in
+bytes, in render time, and in the user's attention. Best for rare, consequential,
+or genuinely ambiguous events. Piper renders these.
+
+**Earcons.** Short abstract tones carrying a conventional meaning, roughly 0.1
+to 0.5s. The opposite trade: they mean nothing until learned, but they repeat and
+overlap cleanly, and they land fast enough to feel like part of the interaction
+rather than a report about it. Direction does most of the work -- rising for
+arrival or a grant, falling for departure or a loss -- which is why `notify-chime`
+descends for control leaving and `turn-ready` rises for it coming back. Best for
+frequent, repeated, self-evident events. Built from `AlternatingTone` and the
+harmonic shapes.
+
+**Generic SFX.** Texture tied to a physical event: whooshes, thumps, clicks. Not
+a message and not a symbol -- the job is sensation, selling motion or impact so a
+transition feels like it happened to something. Usually sub-second, one-shot, and
+noise-based rather than tonal, which means they want a *moving* filter far more
+often than a fixed pitch.
+
+**Beds and background music.** Continuous rather than event-driven, with no
+meaning attached to any moment. It has to survive hours without fatiguing, which
+is a completely different constraint from the three above. Two sub-kinds worth
+separating: state-reactive loops like `flight-slow`/`flight-fast`, which are
+seamless texture that responds to what the app is doing, and composed music,
+which is written rather than parameterized.
+
+### Which tool
+
+Beepboop bakes voice lines, earcons, generic SFX, and the state-reactive loop
+beds. Composed music goes to beatshop, which rents SuperCollider's DSP and is a
+far better machine for it.
+
+The one live exception is the `flip` whoosh, which is generic SFX but was routed
+to beatshop because a whoosh needs a filter that travels over its duration and
+beatshop already has that primitive. If more SFX end up wanting sweeps, the
+honest fix is to build sweep support here rather than to keep exporting them.
 
 ## Current Slice
 
