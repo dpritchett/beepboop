@@ -25,6 +25,8 @@
     {"name": "fast-off", "say": "coasting"},
     {"name": "capture", "say": "controls live"},
     {"name": "release", "say": "controls released"},
+    {"name": "remote-on", "preset": "notify-chime", "effects": []},
+    {"name": "remote-off", "preset": "turn-ready", "effects": []},
     {"name": "flight-slow", "preset": "flight-slow", "effects": []},
     {"name": "flight-fast", "preset": "flight-fast", "effects": []},
     {"name": "view-error", "say": "view error, holding last scene",
