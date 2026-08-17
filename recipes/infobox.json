@@ -1,0 +1,18 @@
+{
+  "effects": [],
+  "outputs": [
+    {"name": "your-turn",
+     "sequence": {"sample_rate": 44100, "duration": 0.55,
+       "notes": [
+         {"start": 0, "duration": 0.45, "frequency": 622.25, "gain": 0.18,
+          "attack": 0.025, "decay": 5}
+       ]}},
+
+    {"name": "blocked",
+     "sequence": {"sample_rate": 44100, "duration": 0.70,
+       "notes": [
+         {"start": 0, "duration": 0.30, "frequency": 622.25, "gain": 0.18,
+          "attack": 0.015, "decay": 9, "repeat": 3, "interval": 0.11}
+       ]}}
+  ]
+}
