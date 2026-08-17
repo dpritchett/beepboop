@@ -1,0 +1,20 @@
+# Local guardrails. There is no CI for this repo, so whatever runs here is the
+# entire safety net -- keep it fast enough that nobody is tempted to --no-verify.
+#
+# golangci-lint is deliberately absent: it currently reports 16 errcheck issues
+# (mostly `defer Close()` and test helpers), and wiring a hook that fails on
+# arrival trains people to skip hooks. Add it once those are fixed.
+pre-commit:
+  parallel: true
+  commands:
+    gofmt:
+      glob: "*.go"
+      run: test -z "$(gofmt -l {staged_files})"
+      fail_text: "unformatted Go; run: gofmt -w ."
+    vet:
+      run: go vet ./...
+    test:
+      run: go test ./...
+    ruff:
+      glob: "*.py"
+      run: uvx ruff check {staged_files}

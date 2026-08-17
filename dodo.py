@@ -87,15 +87,13 @@ def _audition(recipe: str) -> None:
         print(f"  {name}")
         # PlaySync so the gap is real rather than a race between overlapping
         # async plays.
+        win_path = f"$env:TEMP\\beepboop-{Path(recipe).stem}\\{name}.wav"
+        script = (
+            f'$p = New-Object System.Media.SoundPlayer "{win_path}"; '
+            f"$p.PlaySync(); Start-Sleep -Milliseconds {GAP_MS}"
+        )
         subprocess.run(
-            [
-                "powershell.exe",
-                "-NoProfile",
-                "-Command",
-                f'$p = New-Object System.Media.SoundPlayer "$env:TEMP\\'
-                f'beepboop-{Path(recipe).stem}\\{name}.wav"; $p.PlaySync(); '
-                f"Start-Sleep -Milliseconds {GAP_MS}",
-            ],
+            ["powershell.exe", "-NoProfile", "-Command", script],
             check=False,
         )
     print("\nStaged at:", stage)
