@@ -120,26 +120,34 @@ produced all 23 WAVs byte-identical, with `apollo-v1.flac` correctly untouched.
 That is a cold render matching a months-old artifact set, which is a stronger
 result than the earlier same-tree rebake.
 
-### The `flip` whoosh: went to beatshop
+### The `flip` whoosh: went to beatshop, and shipped
 
-Callscape's flip -- half a turn to see what is behind you -- wants "something
+Callscape's flip -- half a turn to see what is behind you -- wanted "something
 wooshy that evokes movement and maybe thrusters", one-shot, under about half a
-second. Nothing on the app side changes when it lands; it already logs
-`voice.missing {cue: "flip"}`.
+second.
 
-No preset here fits, and the gap was a primitive rather than a recipe:
+No preset here fitted, and the gap was a primitive rather than a recipe:
 `AlternatingTone` is tonal, `Loop` is deliberately envelope-free so it can wrap,
 and `lowpass` takes one fixed coefficient. A whoosh is a filter that **moves**.
+Beatshop already had that primitive, so Daniel routed the work there.
 
-Beatshop already has that primitive, so Daniel routed the work there. The brief
-is `../beatshop/HANDOFF.md`, including how to get noise without breaking its
-no-server-RNG rule. Nothing is owed from this repo.
+**Built and signed off by ear the same day**, `recipes/flip.toml` in beatshop.
+It renders at 22050 Hz / 16-bit / mono to match callscape's other earcons rather
+than beatshop's own 48 kHz music format, and it is delivered by a `doit` task,
+since `make sounds` bakes this repo's recipe and cannot carry it.
 
-The cost of the routing, recorded honestly: callscape asked for the whoosh to
-share the `flight-slow`/`flight-fast` noise family so it reads as those engines,
-and that does not survive the move to a different synthesis engine. If it lands
-sounding like a stock effect, that is why, and the fix would be building sweep
-support here after all.
+Two things worth knowing here, because both were open questions this repo raised:
+
+- **Beatshop got noise without weakening its determinism rule.** Samples are
+  drawn in Python from the recipe seed, loaded as a `Buffer`, and read with
+  `PlayBuf`, so server RNG is still never touched and two renders stay
+  byte-identical. `RandSeed`/`RandID` were not involved.
+- **The predicted cost was real.** Callscape asked for the whoosh to share the
+  `flight-slow`/`flight-fast` noise family, and that did not survive the move to
+  a different synthesis engine. What landed is the 90/180/270 Hz partial layer,
+  measured off `flight-slow.wav` rather than guessed. It is a cousin, not a
+  sibling. If that ever reads as wrong in the app, the fix is building sweep
+  support here after all.
 
 ## Next up
 
